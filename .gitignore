@@ -1,0 +1,7 @@
+*.log
+*.out
+*.aux
+*.synctex.*
+*.Rproj
+.Rhistory
+.Rproj.user
