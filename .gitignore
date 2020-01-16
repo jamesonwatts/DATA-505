@@ -4,5 +4,5 @@
 *.synctex.*
 *.Rproj
 .Rhistory
-.Rproj.user
+.Rproj.user*
 mid-term
