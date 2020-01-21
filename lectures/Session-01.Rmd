@@ -243,6 +243,21 @@ So why is the overall accuracy so high then?
 
 ...too many men.
 
+## Other ethical issues
+
+- Demographic data
+- Profit optimizing
+- Autonomous cars
+- Recommendation engines
+- Criminal sentencing
+- Choice of classification model
+- Killer robots
+
+
+Reasonable people will disagree over subtle matters of right and wrong... thus, the important part of data ethics is committing to *consider* the ethical consequences of your choices. 
+
+The difference between "regular" ethics and data ethics is that algorithms scale really easily. Thus, seemingly small decisions can have wide-ranging impact.
+
 # Ethics policy and technology
 
 with my friend Jeff Gaus.
