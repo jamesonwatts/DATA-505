@@ -131,11 +131,11 @@ $x^{*} = \left\{ \begin{array}{l l} \frac{x^{\lambda}-1}{\lambda\: \tilde{x}^{\l
 
 ...allows for common scale across variables. Also helps reduce bias when interactions are included (i.e. eliminates variance inflation).
 
-And there are [many other transformations]{http://www.feat.engineering/numeric-one-to-many.html} that you can read about.
+And there are [many other transformations](http://www.feat.engineering/numeric-one-to-many.html) that you can read about.
 
 ## Interaction effects
 
-[This chapter]{http://www.feat.engineering/detecting-interaction-effects.html} has a good overview of interactions. 
+[This chapter](http://www.feat.engineering/detecting-interaction-effects.html) has a good overview of interactions. 
 
 - start with domain knowledge
 - use visualizations
@@ -151,9 +151,9 @@ And there are [many other transformations]{http://www.feat.engineering/numeric-o
 
 ## Types of resampling
 
-- [V-fold Cross-Validation]{http://www.feat.engineering/resampling.html#cv}
-- [Monte Carlo Cross-Validation]{http://www.feat.engineering/resampling.html#monte-carlo-cross-validation}
-- [The Bootstrap]{http://www.feat.engineering/resampling.html#the-bootstrap}
+- [V-fold Cross-Validation](http://www.feat.engineering/resampling.html#cv)
+- [Monte Carlo Cross-Validation](http://www.feat.engineering/resampling.html#monte-carlo-cross-validation)
+- [The Bootstrap](http://www.feat.engineering/resampling.html#the-bootstrap)
 
 ## Typical setup
 

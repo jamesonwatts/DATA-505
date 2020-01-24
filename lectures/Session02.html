@@ -3453,11 +3453,11 @@ wine %&gt;%
 
 <p>…allows for common scale across variables. Also helps reduce bias when interactions are included (i.e. eliminates variance inflation).</p>
 
-<p>And there are [many other transformations]{<a href='http://www.feat.engineering/numeric-one-to-many.html' title=''>http://www.feat.engineering/numeric-one-to-many.html</a>} that you can read about.</p>
+<p>And there are <a href='http://www.feat.engineering/numeric-one-to-many.html' title=''>many other transformations</a> that you can read about.</p>
 
 </article></slide><slide class=""><hgroup><h2>Interaction effects</h2></hgroup><article  id="interaction-effects" class="smaller ">
 
-<p>[This chapter]{<a href='http://www.feat.engineering/detecting-interaction-effects.html' title=''>http://www.feat.engineering/detecting-interaction-effects.html</a>} has a good overview of interactions.</p>
+<p><a href='http://www.feat.engineering/detecting-interaction-effects.html' title=''>This chapter</a> has a good overview of interactions.</p>
 
 <ul>
 <li>start with domain knowledge</li>
@@ -3475,9 +3475,9 @@ wine %&gt;%
 </article></slide><slide class=""><hgroup><h2>Types of resampling</h2></hgroup><article  id="types-of-resampling" class="smaller ">
 
 <ul>
-<li>[V-fold Cross-Validation]{<a href='http://www.feat.engineering/resampling.html#cv' title=''>http://www.feat.engineering/resampling.html#cv</a>}</li>
-<li>[Monte Carlo Cross-Validation]{<a href='http://www.feat.engineering/resampling.html#monte-carlo-cross-validation' title=''>http://www.feat.engineering/resampling.html#monte-carlo-cross-validation</a>}</li>
-<li>[The Bootstrap]{<a href='http://www.feat.engineering/resampling.html#the-bootstrap' title=''>http://www.feat.engineering/resampling.html#the-bootstrap</a>}</li>
+<li><a href='http://www.feat.engineering/resampling.html#cv' title=''>V-fold Cross-Validation</a></li>
+<li><a href='http://www.feat.engineering/resampling.html#monte-carlo-cross-validation' title=''>Monte Carlo Cross-Validation</a></li>
+<li><a href='http://www.feat.engineering/resampling.html#the-bootstrap' title=''>The Bootstrap</a></li>
 </ul>
 
 </article></slide><slide class=""><hgroup><h2>Typical setup</h2></hgroup><article  id="typical-setup" class="smaller ">
@@ -3517,8 +3517,8 @@ lm_fit &lt;- train(lprice ~ .,
 ## Summary of sample sizes: 71603 
 ## Resampling results:
 ## 
-##   RMSE       Rsquared   MAE      
-##   0.5117995  0.3989093  0.4024991
+##   RMSE       Rsquared  MAE      
+##   0.5098471  0.39637   0.4002985
 ## 
 ## Tuning parameter &#39;intercept&#39; was held constant at a value of TRUE</pre>
 
@@ -3526,7 +3526,7 @@ lm_fit &lt;- train(lprice ~ .,
 postResample(pred=wine_pred, obs = wino_te$lprice)</pre>
 
 <pre >##      RMSE  Rsquared       MAE 
-## 0.5108160 0.3918687 0.4018358</pre>
+## 0.5124206 0.3933801 0.4046737</pre>
 
 </article></slide><slide class=""><hgroup><h2>Exercise (30-40 minutes)</h2></hgroup><article  id="exercise-30-40-minutes" class="smaller ">
 
