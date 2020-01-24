@@ -1,0 +1,289 @@
+---
+title: "Feature Engineering I"
+author: "Jameson Watts, Ph.D."
+date: "1/23/2020"
+output: 
+  ioslides_presentation:
+    smaller: yes
+    widescreen: yes
+    df_print: kable
+---
+<style>
+strong{
+  color: #018080;
+}
+table.rmdtable th {
+    background: #791716;
+}
+
+</style>
+
+## Agenda
+
+1. Data ethics review
+2. What is feature engineering?
+3. Overview of the 'caret' package
+4. Parameter selection
+
+# Data ethics review
+
+## Problems
+- Demographic data
+- Profit optimizing
+- Autonomous cars
+- Recommendation engines
+- Criminal sentencing
+- Choice of classification model
+- Killer robots
+
+Reasonable people will disagree over subtle matters of right and wrong... thus, the important part of data ethics is committing to *consider* the ethical consequences of your choices. 
+
+The difference between "regular" ethics and data ethics is that algorithms scale really easily. Thus, seemingly small decisions can have wide-ranging impact.
+
+# What is feature engineering?
+
+## Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+source('theme.R')
+wine = read_rds("../resources/wine.rds")
+```
+
+## Exploratory visualizations
+
+- Finding interactions
+- Looking at correlations
+- Assessing distribution of data
+
+## Example
+
+```{r echo=F}
+wine %>% 
+  mutate(roger=taster_name=="Roger Voss") %>% 
+  mutate(pinot_gris=variety=="Pinot Gris") %>% 
+  drop_na(roger) %>% 
+  group_by(roger, pinot_gris) %>% 
+  summarise(points = mean(points)) %>% 
+  ggplot() +
+  aes(x = pinot_gris, y = points, color = roger) +
+  geom_line(aes(group = roger)) +
+  geom_point()
+```
+
+## Example
+
+```{r echo=F}
+wine %>% 
+  filter(province=="Oregon") %>% 
+  group_by(year) %>% 
+  summarise(price=mean(price)) %>% 
+  ggplot(aes(year,price))+
+  geom_line()+
+  labs(title = "Oregon wine over the years")
+```
+
+
+## Encoding categorical predictors: few dummies
+
+```{r}
+library(fastDummies)
+wine %>% 
+  select(taster_name) %>% 
+  dummy_cols() %>% 
+  head()
+```
+
+## Encoding categorical predictors: many dummies
+
+```{r}
+wine %>% 
+  select(variety) %>%
+  mutate(variety=fct_lump(variety,5)) %>%
+  dummy_cols() %>% 
+  head()
+```
+
+## Other types of engineered factors...
+
+- Words or phrases in text
+- A given time period
+- An arbitrary numerical cut-off
+- Etc.
+
+
+## Engineering numeric predictors: Box-Cox
+
+Box-Cox transformations use MLE to estimate $\lambda$
+
+$x^{*} = \left\{ \begin{array}{l l} \frac{x^{\lambda}-1}{\lambda\: \tilde{x}^{\lambda-1}}, & \lambda \neq 0 \\ \tilde{x} \: \log x, & \lambda = 0 \\ \end{array} \right.$
+
+- when $\lambda=1$, there is no transformation
+- when $\lambda=0$, it is log transformed
+- when $\lambda=0.5$, it is square root
+- when $\lambda=-1$, it is an inverse
+
+## Engineering numeric predictors: Standardizing
+
+- mean-centering $x-\bar{x}$
+- scaling: $x/std(x)$
+
+...allows for common scale across variables. Also helps reduce bias when interactions are included (i.e. eliminates variance inflation).
+
+And there are [many other transformations]{http://www.feat.engineering/numeric-one-to-many.html} that you can read about.
+
+## Interaction effects
+
+[This chapter]{http://www.feat.engineering/detecting-interaction-effects.html} has a good overview of interactions. 
+
+- start with domain knowledge
+- use visualizations
+- 3-way interactions exist, but are rare
+- brute force is a last resort
+
+# The 'caret' package
+
+## Philosophy
+
+![](images/resampling.svg){width=75%}
+
+
+## Types of resampling
+
+- [V-fold Cross-Validation]{http://www.feat.engineering/resampling.html#cv}
+- [Monte Carlo Cross-Validation]{http://www.feat.engineering/resampling.html#monte-carlo-cross-validation}
+- [The Bootstrap]{http://www.feat.engineering/resampling.html#the-bootstrap}
+
+## Typical setup
+
+```{r}
+library(caret)
+
+wino <- wine %>% ## look ma, engineered features!
+  mutate(fr=(country=="France")) %>%
+  mutate(cab=str_detect(variety,"Cabernet")) %>% 
+  mutate(lprice=log(price)) %>% 
+  drop_na(fr, cab) %>% 
+  select(lprice, points, fr, cab)
+
+wine_index <- createDataPartition(wino$lprice, p = 0.8, list = FALSE)
+wino_tr <- wino[ wine_index, ]
+wino_te <- wino[-wine_index, ]
+
+set.seed(5004)
+lm_fit <- train(lprice ~ .,
+                data = wino_tr, 
+                method = "lm",
+                trControl = trainControl(number = 1))
+```
+
+Follow [this link](https://topepo.github.io/caret) for the full documentation on caret.
+
+## Train vs. test
+
+```{r}
+lm_fit
+wine_pred <- predict(lm_fit, wino_te)
+postResample(pred=wine_pred, obs = wino_te$lprice)
+```
+
+
+## Exercise (30-40 minutes)
+
+1. Gather in your modeling teams
+2. Create 5 new features (in addition to points)
+3. Create training and test data
+4. Use your new predictors to train a linear regression model
+5. Report RMSE on test set
+
+
+# Parameter selection
+
+## Stepwise selection is bad
+
+Harrell (2015) provides a comprehensive indictment of the method that can be encapsulated by the statement:
+
+> **“… if this procedure had just been proposed as a statistical method, it would most likely be rejected because it violates every principle of statistical estimation and hypothesis testing.”**
+
+Reference: Harrell, F. 2015. Regression Modeling Strategies. Springer.
+
+## Basic model with 11 parameters
+
+```{r}
+wino <- wine %>% 
+  mutate(country=fct_lump(country,5)) %>%
+  mutate(variety=fct_lump(variety,5)) %>% 
+  mutate(lprice=log(price)) %>%
+  select(lprice, points, country, variety) %>% 
+  drop_na(.)
+
+library(fastDummies)
+wino <- dummy_cols(wino, remove_selected_columns = T) %>% 
+  select(-country_Other, -variety_Other) %>% 
+  rename_all(funs(tolower(.))) %>% 
+  rename_all(funs(str_replace_all(., "-", "_"))) %>% 
+  rename_all(funs(str_replace_all(., " ", "_")))
+
+wine_index <- createDataPartition(wino$lprice, p = 0.8, list = FALSE)
+wino_tr <- wino[ wine_index, ]
+wino_te <- wino[-wine_index, ]
+
+set.seed(5004)
+lm_fit <- train(lprice ~ .,
+                data = wino_tr, 
+                method = "lm",
+                trControl = trainControl(number = 1))
+```
+
+## Results
+```{r}
+lm_fit
+wine_pred <- predict(lm_fit, wino_te)
+postResample(pred=wine_pred, obs = wino_te$lprice)
+
+```
+
+## Recursive feature elimination
+
+![](images/RFE.png){width=75%}
+
+## Using recursive feature elimination in caret
+
+```{r}
+
+x <- select(wino_tr,-lprice)
+y <- wino_tr$lprice
+subsets <- c(1:11)
+lmProfile <- rfe(x, y,
+                 sizes = subsets,
+                 rfeControl = rfeControl(functions = lmFuncs, returnResamp = "all"))
+```
+
+## Results
+
+```{r}
+lmProfile
+```
+
+## Coefficients
+
+```{r}
+lmProfile$fit
+```
+
+## Graphing performance gains
+
+```{r}
+ggplot(lmProfile)
+```
+
+## Visualizing the resampling 
+
+```{r}
+lmProfile[["resample"]] %>% 
+  ggplot(aes(Variables, RMSE))+
+  geom_point()+
+  geom_smooth()
+```
+
