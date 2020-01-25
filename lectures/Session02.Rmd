@@ -47,6 +47,7 @@ The difference between "regular" ethics and data ethics is that algorithms scale
 ```{r setup, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 library(tidyverse)
+library(caret)
 source('theme.R')
 wine = read_rds("../resources/wine.rds")
 ```
@@ -124,6 +125,22 @@ $x^{*} = \left\{ \begin{array}{l l} \frac{x^{\lambda}-1}{\lambda\: \tilde{x}^{\l
 - when $\lambda=0.5$, it is square root
 - when $\lambda=-1$, it is an inverse
 
+## Calculating Box-Cox
+
+```{r}
+x <- as.data.frame(select(wine,price,points))
+x_proc <- preProcess(x, method = "BoxCox")
+x_proc
+x_new <- predict(x_proc, x) 
+head(x_new)
+```
+## Histogram after Box-Cox
+
+```{r}
+ggplot(x_new,aes(price))+geom_histogram()
+```
+
+
 ## Engineering numeric predictors: Standardizing
 
 - mean-centering $x-\bar{x}$
@@ -158,8 +175,6 @@ And there are [many other transformations](http://www.feat.engineering/numeric-o
 ## Typical setup
 
 ```{r}
-library(caret)
-
 wino <- wine %>% ## look ma, engineered features!
   mutate(fr=(country=="France")) %>%
   mutate(cab=str_detect(variety,"Cabernet")) %>% 
