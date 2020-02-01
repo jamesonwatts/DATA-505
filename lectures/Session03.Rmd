@@ -1,0 +1,236 @@
+---
+title: "K Nearest Neighbors"
+author: "Jameson Watts, Ph.D."
+date: "02/01/2020"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    toc_smooth: true
+    number_sections: true
+    df_print: kable
+    fig_width: 11
+---
+<style>
+strong{
+  color: #018080;
+}
+table.rmdtable th {
+    background: #791716;
+}
+
+</style>
+
+## Agenda
+
+1. The KNN algorithm
+2. Preprocessing
+3. Running the model
+4. Tuning and cross-validation
+5. ROC and feature selection
+
+# The KNN Algorithm
+## Algorithm
+
+1. Load the data
+2. Initialize K to your chosen number of neighbors
+3. For each example in the data
+  1. Calculate the distance between the query example and the current example from the data.
+  2. Add the distance and the index of the example to an ordered collection
+4. Sort the ordered collection of distances and indices from smallest to largest (in ascending order) by the distances
+5. Pick the first K entries from the sorted collection
+6. Get the labels of the selected K entries
+7. If regression, return the mean of the K labels
+8. If classification, return the mode of the K labels
+
+## Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(caret)
+library(class)
+library(fastDummies)
+source('theme.R')
+set.seed(5004)
+wine = as.data.frame(read_rds("../resources/pinot.rds")) 
+```
+
+# Preprocessing
+
+## Caret preprocessing is so easy!
+
+```{r}
+wine %>% 
+  preProcess(method = c("BoxCox","center","scale")) %>% 
+  predict(wine) %>% 
+  head()
+```
+
+But wait... what is wrong here?
+
+```{r}
+wino <- wine %>%
+  mutate(year_f = as.factor(year))
+
+wino <- wino %>% 
+  preProcess(method = c("BoxCox","center","scale")) %>% 
+  predict(wino)
+
+head(wino %>% select(starts_with("year")))
+```
+
+## Engineering some features
+
+```{r}
+wino <- wino %>% 
+  mutate(taster_name = fct_lump(taster_name,5)) %>% 
+  dummy_cols(
+    select_columns = c("year_f","taster_name"),
+    remove_most_frequent_dummy = T, 
+    remove_selected_columns = T) %>% 
+  rename_all(funs(tolower(.))) %>% 
+  rename_all(funs(str_replace_all(., "-", "_"))) %>% 
+  rename_all(funs(str_replace_all(., " ", "_"))) %>% 
+  mutate(cherry = str_detect(description,"cherry")) %>% 
+  mutate(chocolate = str_detect(description,"chocolate")) %>%
+  mutate(earth = str_detect(description,"earth")) %>%
+  select(-description)
+
+head(wino)
+```
+
+
+# Basic Model
+
+## Simple model
+
+```{r}
+wine_index <- createDataPartition(wino$province, p = 0.75, list = FALSE)
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+
+fit <- knn(
+  train = select(train,-province), 
+  test = select(test,-province), 
+  k=5, 
+  cl = train$province, 
+  prob = T)
+
+confusionMatrix(fit,factor(test$province))
+```
+
+## Kappa statistic
+
+Compares oberved accuracy against what would be expected by a random classifier. 
+
+- \< 0.2 (not so good)
+- 0.21 - 0.4 (ok)
+- 0.41 - 0.6 (pretty good)
+- 0.6 - 0.8 (great)
+- \> 0.8 (almost perfect)
+
+...whoa! What's going on here?
+
+## Fixing the leak
+
+```{r}
+wino <- select(wino, -starts_with("taster")) # get rid of the taster variables
+
+wine_index <- createDataPartition(wino$province, p = 0.75, list = FALSE)
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+
+fit <- knn(
+  train = select(train,-province), 
+  test = select(test,-province), 
+  k=5, 
+  cl = train$province, 
+  prob = T)
+
+confusionMatrix(fit,factor(test$province))
+```
+
+# Tuning, cross-validation and feature selection
+
+## Basic model with parameter tuning
+
+```{r}
+fit <- train(province ~ .,
+             data = train, 
+             method = "knn",
+             tuneLength = 15,
+             trControl = trainControl(number = 1))
+fit
+```
+
+
+## Confusion Matrix
+```{r}
+confusionMatrix(predict(fit, test),factor(test$province))
+```
+
+## With parameter tuning, cross validation and Kappa
+
+```{r}
+fit <- train(province ~ .,
+             data = train, 
+             method = "knn",
+             tuneLength = 15,
+             metric = "Kappa",
+             trControl = trainControl(method = "repeatedcv"))
+
+fit
+```
+
+## Tuning plot
+
+```{r}
+ggplot(fit, metric="Kappa")
+```
+
+
+## Group modeling problem I
+
+* Practice running different versions of the model
+* Create some new features and
+* see if you can achieve a Kappa >= 0.5
+
+# Feature Selection and KNN for regression
+
+## Feature Selection
+
+```{r}
+x <- select(train,-province)
+y <- train$province
+
+# feature selection settings
+rfeC <- rfeControl(functions = caretFuncs, method = "cv", number=2, verbose = F, returnResamp="final")
+# cross validation settings
+trC <- trainControl(method = "cv", number=2, verboseIter=F)
+# feature sizes to try
+sizes <- seq(2,ncol(x)-1,2)
+# levels of K to try
+knnG <- expand.grid(.k=seq(20, 30, 5))
+knnR <- rfe(x, y, sizes = sizes, tuneGrid = knnG, rfeControl = rfeC, method="knn", trControl=trC)
+knnR
+```
+
+```{r}
+ggplot(knnR, metric = "Kappa")
+```
+
+
+## KNN for regression
+
+```{r}
+fit <- train(price ~ .,
+             data = train, 
+             method = "knn",
+             tuneLength = 15,
+             trControl = trainControl(number = 1))
+fit
+
+```
+
