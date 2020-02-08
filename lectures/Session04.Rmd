@@ -1,0 +1,291 @@
+---
+title: "Naive Bayes"
+author: "Jameson Watts, Ph.D."
+date: "02/01/2020"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    toc_smooth: true
+    number_sections: true
+    df_print: kable
+    fig_width: 11
+---
+<style>
+strong{
+  color: #018080;
+}
+table.rmdtable th {
+    background: #791716;
+}
+
+</style>
+
+## Agenda
+
+1. The Naive Bayes algorithm
+2. Tidy text and bag of words
+3. The new tidymodels package
+
+# The Naive Bayes Algorithm
+
+## Algorithm
+
+$ p(C|x) = \frac{p(C \space\&\space x)}{p(x)}$
+
+## Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(caret)
+library(naivebayes)
+library(fastDummies)
+source('theme.R')
+
+wine = as.data.frame(read_rds("../resources/pinot-project.rds")) 
+```
+
+## Some basic features
+
+```{r}
+wino <- wine %>% 
+  mutate(year_f = as.factor(year)) %>% 
+  mutate(cherry = str_detect(description,"cherry")) %>% 
+  mutate(chocolate = str_detect(description,"chocolate")) %>%
+  mutate(earth = str_detect(description,"earth")) %>%
+  select(-description, year)
+
+glimpse(wino)
+```
+
+## A couple conditional probabilities
+
+$p(Oregon | cherry) = \frac{p(Oregon \space\&\space Cherry)}{p(Cherry)}$
+
+```{r}
+oregon_and_cherry <- nrow(filter(wino, province=="Oregon" & cherry))/nrow(wino)
+cherry <- nrow(filter(wino, cherry))/nrow(wino)
+oregon_and_cherry/cherry
+```
+
+## How about New York?
+$p(NY | cherry) = \frac{p(NY \space\&\space Cherry)}{p(Cherry)}$
+
+```{r}
+ny_and_cherry <- nrow(filter(wino, province=="New_York" & cherry))/nrow(wino)
+ny_and_cherry/cherry
+```
+
+
+## A basic model
+
+```{r}
+set.seed(5004)
+wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+
+grid <- expand.grid(usekernel = c(T, F), laplace = c(T,F), adjust = T)
+grid
+
+fit <- train(province ~ .,
+             data = train, 
+             method = "naive_bayes",
+             tuneGrid = grid,
+             metric = "Kappa",
+             trControl = trainControl(method = "cv"))
+fit
+```
+
+What's going on here?
+
+## Maybe bin the data?
+
+```{r}
+wino <- wino %>%
+  select(-starts_with("year_")) %>% 
+  mutate(points_f = case_when(
+    points < 90 ~ "low",
+    points >= 90 & points < 96 ~ "med",
+    points >= 96 ~ "high"
+  )
+           )  %>% 
+  mutate(price_f = case_when(
+    price < 16 ~ "low",
+    price >= 16 & price < 41 ~ "med",
+    price >= 41 ~ "high"
+  )
+           )  %>% 
+  mutate(year_f = case_when(
+    year < 2005 ~ "old",
+    year >= 2005 & year < 2011 ~ "recent",
+    year >= 2011 ~ "current"
+  )
+           ) %>% 
+  select(-price,-points,-year)
+
+  head(wino)
+```
+
+## Binned model
+
+```{r}
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+
+fit <- train(province ~ .,
+             data = train, 
+             method = "naive_bayes",
+             tuneGrid = grid,
+             metric = "Kappa",
+             trControl = trainControl(method = "cv"))
+fit
+```
+
+Little better, but let's look at the confusion matrix to see what might be going on.
+
+## Confusion Matrix
+```{r}
+confusionMatrix(predict(fit, test),factor(test$province))
+```
+
+##### Naive bayes is best when you want to consider a bunch of predictors simultaneously to get a 'holistic' view.
+
+
+# Tidytext and frequency distributions
+
+## Tidytext
+
+```{r}
+library(tidytext)
+data(stop_words)
+
+head(stop_words, 25)$word
+```
+
+## Create document term matrix
+
+```{r}
+wine <- rowid_to_column(wine, "ID") # so we can summarize and link back to original data set
+df <- wine %>%
+  unnest_tokens(word, description) %>%
+  anti_join(stop_words) %>% # get rid of stop words
+  filter(word != "wine") %>%
+  filter(word != "pinot") %>%
+  count(ID, word) %>% 
+  group_by(ID) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  mutate(exists = (n>0)) %>% 
+  ungroup %>% 
+  group_by(word) %>% 
+  mutate(total = sum(n))
+
+head(df, 10)
+```
+
+## Top words in database
+
+```{r}
+df %>% 
+  count(word) %>%
+  arrange(desc(n)) %>% 
+  head(25)
+```
+
+## Pivot wide and rejoin with wine
+
+```{r}
+wino <- df %>% 
+  filter(total > 1000) %>% 
+  pivot_wider(id_cols = ID, names_from = word, values_from = exists, values_fill = list(exists=0)) %>% 
+  right_join(select(wine,ID, province)) %>% 
+  drop_na()
+
+head(wino, 10) %>% 
+  select(1:5,province)
+```
+
+## A new model
+
+```{r}
+set.seed(5004)
+wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+
+fit <- train(province ~ .,
+             data = train, 
+             method = "naive_bayes",
+             tuneGrid = expand.grid(usekernel = T, laplace = T, adjust = T),
+             metric = "Kappa",
+             trControl = trainControl(method = "cv"))
+fit
+```
+
+...now things are getting better.
+
+## Confusion Matrix
+```{r}
+confusionMatrix(predict(fit, test),factor(test$province))
+```
+
+## Maybe we can find words associated with our sparse provinces?
+
+```{r}
+
+df %>% 
+  left_join(select(wine, ID, province), by = "ID") %>% 
+  count(province, word) %>%
+  group_by(province) %>% 
+  top_n(10,n) %>% 
+  arrange(province, desc(n))
+```
+
+## Group exercise
+
+Use the top words by province to...
+
+1. Engineer more features that capture the essence of Casablanca, Marlborough and New York
+2. Use them to run naive bayes models that achieve Kappa > 0.4
+
+# Intro to Tidymodels
+
+## Splitting the data
+
+```{r}
+library(tidymodels)
+library(discrim)
+wine = as.data.frame(read_rds("../resources/pinot-project.rds")) %>% 
+  select(-description)
+wine_split <- initial_split(wine)
+train <- training(wine_split)
+test <- testing(wine_split)
+```
+
+## Model specification
+
+```{r}
+lm_spec <- linear_reg() %>%
+  set_engine(engine = "lm")
+
+lm_spec
+```
+
+## Fit the Model
+
+```{r}
+lm_fit <- lm_spec %>%
+  fit(price ~ .,
+    data = train
+  )
+
+lm_fit
+```
+
+## Some references
+
+https://rviews.rstudio.com/2019/06/19/a-gentle-intro-to-tidymodels/
+
+https://juliasilge.com/blog/intro-tidymodels/
