@@ -32,7 +32,7 @@ table.rmdtable th {
 
 ## Algorithm
 
-$ p(C|x) = \frac{p(C \space\&\space x)}{p(x)}$
+$p(C|x) = \frac{p(C \space \& \space x)}{p(x)}$
 
 ## Setup
 
