@@ -29,9 +29,26 @@ table.rmdtable th {
 2. Implementation with Caret
 3. Regularization (penalized logit)
 
+## First Model Due 3/7
+
+**Turn in:**
+
+1. An annotated RMD file 
+2. that generates a dataframe 
+3. with *only* the features you want in the model.
+
+**Rules:**
+
+1. You must specify whether I should use KNN or Naive Bayes and the *exact* values of any tuning parameters.
+2. Models will be run with the following equation: "province ~ ." on your data frame
+3. I will use repeated 10-fold cross validation
+4. and the same index for partitioning training and test sets for every group.
+5. Assignments must be turned in before class on the 7th
+6. Grade is based on highest Kappa, with grades of 100, 95 and 90 to the first, second and third place finishers.
+7. RMD files will be published to the class after grading is complete
+
+
 # Logistic Regression
-
-
 
 ## Algorithm
 
@@ -299,25 +316,6 @@ myRoc <- roc(test$oregon, prob)
 plot(myRoc)
 auc(myRoc)
 ```
-
-## First Model Due 3/7
-
-**Turn in:**
-
-1. An annotated RMD file 
-2. that generates a dataframe 
-3. with *only* the features you want in the model.
-
-**Rules:**
-
-1. You must specify whether I should use KNN or Naive Bayes and the *exact* values of any tuning parameters.
-2. Models will be run with the following equation: "province ~ ." on your data frame
-3. I will use repeated 10-fold cross validation
-4. and the same index for partitioning training and test sets for every group.
-5. Assignments must be turned in before class on the 7th
-6. Grade is based on highest Kappa, with grades of 100, 95 and 90 to the first, second and third place finishers.
-7. RMD files will be published to the class after grading is complete
-
 
 # References
 
