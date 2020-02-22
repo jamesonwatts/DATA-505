@@ -31,17 +31,7 @@ table.rmdtable th {
 
 # Logistic Regression
 
-```{r setup, message=FALSE, warning=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
-library(tidyverse)
-library(caret)
-source('theme.R')
 
-wine = as.data.frame(read_rds("../resources/pinot-project.rds")) %>% 
-  mutate(oregon = as.integer(province=="Oregon")) %>% 
-  rowid_to_column("id") %>% 
-  select(-province)
-```
 
 ## Algorithm
 
@@ -55,9 +45,19 @@ $p=\frac{1}{1+e^{-(\beta_{0}+\beta_{1}x_{1}+\beta_{2}x_{2})}}$
 
 Why do we call this regression instead of classification?
 
-## Extract top words from description
+# Implementation with Caret
 
-```{r}
+## (Long) Setup
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(caret)
+source('theme.R')
+
+wine = as.data.frame(read_rds("../resources/pinot-project.rds")) %>% 
+  mutate(oregon = as.integer(province=="Oregon")) %>% 
+  rowid_to_column("id") %>% 
+  select(-province)
 
 #create a function to extract words with totals > j
 wine_words <- function(data, j = 1000, stem=F){ 
@@ -96,7 +96,7 @@ head(wino, 10) %>%
 
 ```
 
-## Split the data into equal Oregon / Non-Oregon Pinots
+## Split the data 
 
 ```{r}
 wine_index <- createDataPartition(wino$oregon, p = 0.80, list = FALSE)
@@ -243,11 +243,15 @@ library(glmnet)
 
 ## Ridge Regression
 
+$\sum_{i=1}^{n} \left( y_i - \beta_0 - \sum_{j=1}^{p} \beta_j x_{ij}    \right) ^ 2 + \lambda \sum_{j=1}^{p} \beta_j^2$
+
 Ridge regression shrinks the regression coefficients, so that variables, with minor contribution to the outcome, have their coefficients close to zero.
 
 The shrinkage of the coefficients is achieved by penalizing the regression model with a penalty term called **L2-norm**, which is the sum of the squared coefficients. 
 
 ## Lasso Regression
+
+$\sum_{i=1}^{n} \left( y_i - \beta_0 - \sum_{j=1}^{p} \beta_j x_{ij}    \right) ^ 2 + \lambda \sum_{j=1}^{p} |\beta_j|$
 
 Lasso stands for Least Absolute Shrinkage and Selection Operator. It shrinks the regression coefficients toward zero by penalizing the regression model with a penalty term called L1-norm, which is the sum of the absolute coefficients.
 
@@ -315,8 +319,10 @@ auc(myRoc)
 7. RMD files will be published to the class after grading is complete
 
 
-## References
+# References
 
 James, Gareth, Daniela Witten, Trevor Hastie, and Robert Tibshirani. 2014. An Introduction to Statistical Learning: With Applications in R. Springer Publishing Company, Incorporated.
 
 http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/153-penalized-regression-essentials-ridge-lasso-elastic-net/
+
+https://en.wikipedia.org/wiki/Regularization_(mathematics)
