@@ -276,6 +276,8 @@ In the case of lasso regression, the penalty has the effect of forcing some of t
 
 ## Elastic Net
 
+$\sum_{i=1}^{n} \left( y_i - \beta_0 - \sum_{j=1}^{p} \beta_j x_{ij}  \right) ^ 2 + \alpha\lambda \sum_{j=1}^{p} |\beta_j|+(1-\alpha)\lambda \sum_{j=1}^{p} \beta_j^2$
+
 Generally, lasso might perform better in a situation where some of the predictors have large coefficients, and the remaining predictors have very small coefficients.
 
 Ridge regression will perform better when the outcome is a function of many predictors, all with coefficients of roughly equal size (James et al. 2014).

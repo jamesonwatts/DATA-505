@@ -1,0 +1,304 @@
+---
+title: "Decision Trees"
+author: "Jameson Watts, Ph.D."
+date: "03/07/2020"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    toc_smooth: true
+    number_sections: true
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+<style>
+strong{
+  color: #018080;
+}
+table.rmdtable th {
+    background: #791716;
+}
+
+</style>
+
+## Agenda
+
+1. Decision-trees
+2. Weighted models for class imbalance
+3. Random forests
+4. Mid-term Review
+
+# Decision trees
+
+## (Long) Setup
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(caret)
+source('theme.R')
+
+wine = as.data.frame(read_rds("../resources/pinot-project.rds")) %>% 
+  rowid_to_column("id") %>% 
+  mutate(lprice=log(price)) %>% 
+  
+  select(-price)
+
+#create a function to extract words with totals > j
+wine_words <- function(data, j = 1000, stem=F){ 
+  library(tidytext)
+  library(SnowballC)
+  data(stop_words)
+
+  data <- data %>%
+    unnest_tokens(word, description) %>%
+    anti_join(stop_words) %>% # get rid of stop words
+    filter(!(word %in% c("wine","pinot","vineyard")))
+  
+  if(stem){
+    data <- data %>% 
+      mutate(word = wordStem(word))
+  }
+  
+  data %>% 
+    count(id, word) %>% 
+    group_by(id) %>% 
+    mutate(exists = (n>0)) %>% 
+    ungroup %>% 
+    group_by(word) %>% 
+    mutate(total = sum(n)) %>% 
+    filter(total > j) %>% 
+    pivot_wider(id_cols = id, names_from = word, values_from = exists, values_fill = list(exists=0)) %>% 
+    right_join(select(wine,id, province, lprice, points)) %>% 
+    drop_na() %>% 
+    select(-id)
+}
+
+wino <- wine_words(wine, j=2000, stem=F) %>% 
+  filter(province %in% c("Oregon","California")) %>% 
+  head() %>% 
+  select(-lprice, -points) %>% 
+  arrange(province)
+
+wino
+```
+
+## Algorithm
+
+1. Select the best attribute -> A 
+2. Assign A as the decision attribute (test case) for the NODE. 
+3. For each value of A, create a new descendant of the NODE. 
+4. Sort the training examples to the appropriate descendant node leaf.
+5. If examples are perfectly classified, then STOP else iterate over the new leaf nodes.
+
+How do we find the best attribute?
+
+![](images/decisiontree.png)
+
+## Information Gain
+
+$InformationGain=Entropy(parent)-[AverageEntropy(children)]$
+
+where,
+
+$Entropy=\sum_{i=1}-(p_i)log(p_i)$
+
+and $p$ is the proportion of the class under consideration.
+
+For instance, the entropy of my sample is:
+
+$Entropy(parent)=Entropy(2_o,4_c)=-(2/6)log(2/6)-(4/6)log(4/6)=0.36+0.27=0.63$
+
+## Exercise
+
+Let's try splitting on "fruit" and see what we get.
+
+$Entropy(fruit)=Entropy(2_o,0_c)+Entropy(2_o,2_c)$
+
+$=-(2/2)log(2/2)-(0/2)log(0/2)-(2/4)log(2/4)-(2/4)log(2/4)=-0-0-0.35-0.35$
+
+So the information gain is $0.63-0.35=0.28$
+
+Is this better than splitting on tannins first?
+
+
+## Split the data 
+
+```{r, message=F}
+wino <- wine_words(wine, j=2000, stem=F)
+wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+table(train$province)
+```
+
+## Fit a basic model
+
+```{r}
+library(rpart)
+ctrl <- trainControl(method = "cv")
+
+fit <- train(province ~ .,
+             data = train, 
+             method = "rpart",
+             trControl = ctrl,
+             metric = "Kappa")
+
+fit
+```
+
+
+```{r}
+library(rpart.plot)
+rpart.plot(fit$finalModel, type = 2)
+```
+
+## Confusion Matrix
+
+```{r}
+pred <- predict(fit, newdata=test)
+confusionMatrix(factor(pred),factor(test$province))
+```
+
+Not bad... but what if we reduce the complexity constraint?
+
+## Lower complexity
+
+$cp = \sum_{leaves} Misclass_i+\lambda(Splits)$
+
+```{r}
+fit <- train(province ~ .,
+             data = train, 
+             method = "rpart",
+             trControl = ctrl,
+             tuneLength = 10,
+             metric = "Kappa")
+
+fit
+rpart.plot(fit$finalModel, type = 2)
+```
+
+## Potential Overfitting
+
+Should I prune on...
+
+- Depth?
+- Class size?
+- Complexity?
+- Minimum Information Gain?
+
+# Weighted Models
+
+```{r}
+weight_train <- train %>% 
+  mutate(weights=if_else(province %in% c("Oregon","Burgundy","California"),1,10))
+
+
+fit <- train(province ~ .,
+             data = train, 
+             method = "rpart",
+             weights = weight_train$weights,
+             trControl = ctrl)
+
+fit
+rpart.plot(fit$finalModel, type = 2)
+```
+
+## Confusion Matrix
+
+```{r}
+pred <- predict(fit, newdata=test)
+confusionMatrix(factor(pred),factor(test$province))
+```
+
+# Random Forest
+
+![](images/randomForest.jpg)
+
+```{r}
+library(randomForest)
+fit <- train(province ~ .,
+             data = train, 
+             method = "rf",
+             weights = weight_train$weights,
+             trControl = ctrl)
+
+fit
+
+```
+
+## Confusion Matrix
+
+```{r}
+pred <- predict(fit, newdata=test)
+confusionMatrix(factor(pred),factor(test$province))
+```
+
+## Summary
+
+Pros
+
+- Easy to use and understand. 
+- Can handle both categorical and numerical data. 
+- Resistant to outliers, hence require little data preprocessing. 
+- New features can be easily added. 
+- Can be used to build larger classifiers by using ensemble methods.
+
+Cons
+
+- Prone to overfitting. 
+- Require some kind of measurement as to how well they are doing. 
+- Need to be careful with parameter tuning. 
+- Can create biased learned trees if some classes dominate.
+
+# Mid-term Review
+
+1. Multiple Regression
+    - Model diagnostics
+    - Variable interactions
+    - RMSE
+2. Data Ethics
+    - Class imbalances
+    - Anonymity and debiasing 
+3. Feature Engineering
+    - Encoding categorical vairables
+    - Interactions
+    - Transformations
+    - Standardizing
+4. Resampling
+    - Bootstrapping 
+    - V-fold Cross validations
+5. Parameter Selection
+    - Recursive feature elimination
+6. KNN
+    - How does it work?
+    - Accuraccy vs. Kappa
+    - Leakage
+    - Tuning
+    - Classification vs. Regression
+    - Confusion Matrix
+7. Naive Bayes
+    - How does it work?
+    - What is a conditional probability?
+8. Tidytext
+    - Document-term matrix
+    - tokens, stems, bigrams
+9. Logistic Regression
+    - How does it work?
+    - Why is it called regression and not classification?
+    - ROC curves
+    - Regularization
+10. Decision Trees
+    - How do they work?
+    - What is information gain?
+    - What is the complexity parameter?
+    - What does weighting the classes accomlish?
+    - How do random forests work? 
+    - What are the strengths / weaknesses?
+
+# References
+
+http://www.learnbymarketing.com/tutorials/rpart-decision-trees-in-r/
+https://www.hackerearth.com/practice/machine-learning/machine-learning-algorithms/ml-decision-tree/tutorial/
+
