@@ -225,7 +225,6 @@ fit <- train(province ~ .,
              trControl = ctrl)
 
 fit
-
 ```
 
 ## Confusion Matrix
