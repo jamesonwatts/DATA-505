@@ -1,0 +1,168 @@
+---
+title: "Dimensionality Reduction"
+author: "Jameson Watts, Ph.D."
+date: "03/28/2020"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+## Agenda
+
+1. Review of last week and modeling assignment 2
+2. Overview of neural networks
+3. Basic regression and classification with tensor flow
+
+## Set up tensorflow
+
+In the console
+
+> install_tensorflow(version = "1.15")
+
+*Note:* You may want to make sure you have the latest reticulate version installed.
+
+## Setup
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(reticulate)
+library(tensorflow)
+library(tfestimators)
+```
+
+## Check tensorflow setup
+```{r}
+tf_config()
+```
+
+## Create a simple dataset
+```{r}
+wine <- read_rds("../resources/pinot-project.rds") %>% 
+  select(price, province, points) %>% 
+  rownames_to_column("id") %>% 
+  mutate(exists=T) %>% 
+  pivot_wider(names_from = province, values_from = exists, values_fill = c(exists=F)) %>% 
+  mutate(price=log(price)) %>% 
+  select(-id) %>% 
+  mutate_if(is_numeric,scale) %>% 
+  mutate_if(is_logical,as.integer)
+
+## create training and test partitions
+train_rows <- sample(1:nrow(wine), size = 0.8 * nrow(wine))
+train <- wine[train_rows,] 
+test <-wine[-train_rows,]
+
+head(train)
+```
+
+
+## Create necessary inputs for train function
+```{r}
+ftr_colns <- feature_columns( 
+  tf$feature_column$numeric_column("points"),
+  tf$feature_column$categorical_column_with_identity("Oregon",2),
+  tf$feature_column$categorical_column_with_identity("California",2),
+  tf$feature_column$categorical_column_with_identity("Burgundy",2)
+)
+
+wodel <- linear_regressor(feature_columns=ftr_colns)
+
+winput = function(data){ 
+  input_fn(data, features = c("points","Oregon","California","Burgundy"), response = "price")
+}
+
+```
+
+## Train the model
+
+```{r}
+## Assigns model to wodel
+wrain <- train(wodel,winput(train))
+wrain
+## Evaluates out of sample using wodel
+weval <- evaluate(wodel,winput(test))
+weval
+
+# pr <- predict(wodel,winput(test))
+# rbind_all(pr$predictions)
+# pr$predictions[][1]
+```
+
+## Build a basic classification model
+
+```{r}
+wine <- read_rds("../resources/pinot-project.rds") %>% 
+  select(province, price, points) %>%
+  mutate(price=log(price)) %>% 
+  mutate_if(is_numeric,scale) 
+
+
+## create training and test partitions
+train_rows <- sample(1:nrow(wine), size = 0.8 * nrow(wine))
+train <- wine[train_rows,] 
+test <-wine[-train_rows,]
+
+head(train)
+```
+
+## Create necessary inputs for train function
+```{r}
+ftr_colns <- feature_columns( 
+  tf$feature_column$numeric_column("price"),
+  tf$feature_column$numeric_column("points")
+)
+
+wodel <- linear_classifier(feature_columns=ftr_colns,
+                           label_vocabulary = c("Oregon","California","Burgundy","Marlborough","Casablanca_Valley","New_York"),
+                           n_classes = 6)
+
+winput = function(data){ 
+  input_fn(data, features = c("price","points"), response = "province")
+}
+
+```
+
+## Train the model
+
+```{r}
+## Assigns model to wodel
+wrain <- train(wodel,winput(train))
+wrain
+## Evaluates out of sample using wodel
+weval <- evaluate(wodel,winput(test))
+weval
+
+pr <- predict(wodel,winput(test))
+```
+
+## How about a deep neural net?
+
+```{r}
+wodel <-
+    dnn_classifier(
+      feature_columns = ftr_colns,
+      hidden_units = c(3, 3),
+      label_vocabulary = c("Oregon","California","Burgundy","Marlborough","Casablanca_Valley","New_York"),
+      n_classes = 6,
+      optimizer = "Adagrad",
+      model_dir = "../models"
+    )
+
+## Assigns model to wodel
+wrain <- train(wodel,winput(train))
+wrain
+## Evaluates out of sample using wodel
+weval <- evaluate(wodel,winput(test))
+weval
+
+tensorboard(log_dir = "../models")
+```
+
+
+# References
+
+https://tensorflow.rstudio.com/
+
+
