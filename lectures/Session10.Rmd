@@ -1,0 +1,237 @@
+---
+title: "Tensorflow with Keras"
+author: "Jameson Watts, Ph.D."
+date: "04/11/2020"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+## Agenda
+
+1. Last group modeling assignment
+2. Deep Learning using the Keras API
+3. Breakout sessions
+4. Review of deep learning concepts
+
+**Worth reading:** https://www.fharrell.com/post/classification/
+
+# Last Modeling Assignment
+
+1. Predict whether a customer will be a repeat purchaser
+2. Using any method you'd like
+3. Evaluated using AUC
+
+**Turn in:** 
+
+A clearly annotated RMD that takes the ecommerce dataset as input and outputs a set of class predictions that can be used to make an ROC curve and calculate AUC.
+
+**Present:**
+
+A maximum of 10 slides (powerpoint or html), without any code, that demonstrates 
+
+- how and why you created/selected the features used
+- the choice and design of your model
+- results and recommendations to management
+
+**Rules:** 
+
+- Every group member must participate in the presentation*
+- Date variable can only be used for seasonal indicators
+- 50% of your grade for the assignment is based on presentation 
+
+## Setup
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(lubridate)
+```
+
+## Load Data
+
+```{r}
+edata <- read_rds("../exams/ecommerce.rds")
+glimpse(edata)
+table(edata$repeat_customer)
+```
+
+
+## Engineer a couple of basic features
+
+```{r}
+medata <- edata %>%
+  mutate(repeat_customer=as.integer(repeat_customer)) %>% 
+  mutate(total = log(final_total)) %>% 
+  mutate(mini=as.integer(str_detect(product_details,"MINI"))) %>% 
+  mutate(bmw=as.integer(str_detect(product_details,"BMW"))) %>% 
+  mutate(holiday = as.integer(month(date) >= 10)) %>% 
+  mutate(basket_size = str_count(product_details,"Product Name:")) %>% 
+  select(-product_details, -date, -final_total)
+
+head(medata)
+```
+
+
+## Run a basic Logistic Model
+
+```{r}
+library(caret)
+
+## create training and test partitions
+train_rows <- sample(1:nrow(medata), size = 0.8 * nrow(medata))
+train <- medata[train_rows,]
+test <-medata[-train_rows,]
+
+fit <- train(repeat_customer ~ .,
+             data = train, 
+             trControl = trainControl(method="repeatedcv", repeats = 5),
+             method = "glm",
+             family = "binomial")
+
+summary(fit)
+varImp(fit)
+
+```
+
+## Interpretation
+```{r}
+odds <- exp(coef(fit$finalModel))
+data.frame(name = names(odds), odds = odds) %>%  
+  mutate(probability=odds/(1+odds)) %>% 
+  arrange(desc(odds))
+```
+
+## Confusion Matrix
+
+```{r}
+prob <- predict(fit, newdata=test)
+pred <- ifelse(prob > 0.5, 1, 0)
+
+confusionMatrix(factor(pred),factor(test$repeat_customer))
+```
+
+## Ouch. Maybe add some weights?
+
+```{r}
+weights <- train %>% 
+  mutate(weight=if_else(repeat_customer==1,13,1))
+
+fit <- train(as.integer(repeat_customer) ~ .,
+             data = train, 
+             trControl = trainControl(method="repeatedcv", repeats = 5),
+             weights = weights$weight,
+             method = "glm",
+             family = "binomial")
+
+prob <- predict(fit, newdata=test)
+pred <- ifelse(prob > 0.5, 1, 0)
+
+confusionMatrix(factor(pred),factor(test$repeat_customer))
+```
+
+## ROC Curve evaluation
+
+Remember: 
+
+$Sensitivity = \frac{truePos}{allPos} = TruePosRate$
+
+$Specificity = \frac{trueNeg}{allNeg} = TrueNegRate = 1 - FalsePosRate$
+
+```{r}
+library(pROC)
+myRoc <- roc(test$repeat_customer, prob)
+plot(myRoc)
+auc(myRoc)
+```
+
+
+
+## Tensor Flow?
+
+```{r}
+library(reticulate)
+library(tensorflow)
+library(keras)
+```
+
+## Check tensorflow setup
+```{r}
+tf_config()
+```
+
+## Create model
+
+```{r}
+x_train = as.matrix(select(train, -repeat_customer))
+y_train = to_categorical(train$repeat_customer, num_classes = 2)
+
+
+model = keras_model_sequential() %>%   
+  layer_dense(units = 32, activation = "relu", input_shape = ncol(x_train)) %>%
+  layer_dense(units = ncol(y_train), activation = "softmax")
+
+model %>% 
+  compile(
+    optimizer = 'rmsprop',
+    loss = 'mse',
+    metrics = c('accuracy', 'mae')
+  )
+
+summary(model)
+```
+
+
+## Fit the model
+
+```{r}
+history <- model %>% 
+  fit (
+    x = x_train,
+    y = y_train,
+    epochs = 10, 
+    batch_size = 32, 
+    validation_split = .2,
+    class_weight = list("0"=1,"1"=13),
+    #model_dir = "../models"
+)
+
+plot(history)
+```
+
+
+## How well do we perform?
+
+```{r}
+x_test = as.matrix(select(test, -repeat_customer))
+
+pred=predict_classes(model, x_test)
+confusionMatrix(factor(pred),factor(test$repeat_customer))
+
+```
+
+# Breakout sessions
+
+# Deep Learning Concepts
+
+- Nodes
+- Weights
+- Activation Function (relu vs. softmax)
+- Back propogation
+- Epoch
+- Batch Size
+- Regularization (L2 vs. dropout)
+- Hyperparameters
+
+
+```{r}
+#tensorboard(log_dir = "../models")
+```
+
+
+# References
+
+https://tensorflow.rstudio.com/
+https://towardsdatascience.com/how-to-create-a-sequential-model-in-keras-for-r
+
