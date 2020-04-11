@@ -193,8 +193,7 @@ history <- model %>%
     epochs = 10, 
     batch_size = 32, 
     validation_split = .2,
-    class_weight = list("0"=1,"1"=13),
-    #model_dir = "../models"
+    class_weight = list("0"=1,"1"=13)
 )
 
 plot(history)
@@ -223,12 +222,6 @@ confusionMatrix(factor(pred),factor(test$repeat_customer))
 - Batch Size
 - Regularization (L2 vs. dropout)
 - Hyperparameters
-
-
-```{r}
-#tensorboard(log_dir = "../models")
-```
-
 
 # References
 
