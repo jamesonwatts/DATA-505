@@ -170,6 +170,8 @@ y_train = to_categorical(train$repeat_customer, num_classes = 2)
 
 model = keras_model_sequential() %>%   
   layer_dense(units = 32, activation = "relu", input_shape = ncol(x_train)) %>%
+  layer_dropout(rate=0.2) %>% 
+  layer_dense(units = 16) %>%
   layer_dense(units = ncol(y_train), activation = "softmax")
 
 model %>% 
