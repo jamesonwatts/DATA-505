@@ -1,0 +1,200 @@
+---
+title: "Bagging, Boosting and Custom Ensembles"
+author: "Jameson Watts, Ph.D."
+date: "04/18/2020"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+## Agenda
+
+1. Q&A with Brad Jackson of ProKarma
+2. Review of deep learning concepts
+3. Bagging 
+4. Boosting
+5. General Ensemble Methods
+6. Breakout session (if time)
+
+# Review of Deep Learning Concepts
+
+- Nodes
+- Weights
+- Activation Function (relu vs. softmax)
+- Back propogation
+- Epoch
+- Batch Size
+- Regularization (L2 vs. dropout)
+- Hyperparameters
+
+
+# Improving model performance with meta-learing (maybe)
+
+![](images/biasvariance.png)
+
+The goal is to decrease the variance (bagging) or bias (boosting) in our models.
+
+- Step 1: producing a distribution of simple ML models on subsets of the original data.
+- Step 2: combine the distribution into one “aggregated” model.
+
+![](images/biasvariance2.png)
+
+## Setup
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(caret)
+library(tidytext)
+library(fastDummies)
+data(stop_words)
+wine <- read_rds("../resources/pinot-project.rds") %>% rowid_to_column("id")
+```
+
+## Engineer a couple of basic features
+
+```{r}
+wedata <- wine %>%
+  unnest_tokens(word, description) %>%
+  anti_join(stop_words) %>%
+  filter(str_detect(string = word, pattern = "[a-z+]")) %>%  # get rid weird non alphas
+  filter(!(word %in% c("wine","pinot","drink","noir","vineyard","palate","notes","flavors","bottling","offers"))) %>% 
+  count(id, word) %>% 
+  group_by(word) %>% 
+  mutate(total = sum(n)) %>% 
+  filter(total > 500) %>% 
+  ungroup %>% 
+  group_by(id) %>% 
+  mutate(exists = if_else(n>0,1,0)) %>% 
+  ungroup %>% 
+  pivot_wider(id_cols = id, names_from = word, values_from = exists, values_fill = c(exists=0)) %>% 
+  right_join(wine, by="id") %>% 
+  replace(.,is.na(.),0) %>%
+  mutate(price=log(price)) %>% 
+  mutate(price=scale(price)) %>% 
+  mutate(points=scale(points)) %>% 
+  dummy_cols(select_columns = c("year"), remove_first_dummy = T, remove_selected_columns = T) %>% 
+  select(-id, -description) 
+
+
+train_rows <- sample(1:nrow(wedata), size = 0.5 * nrow(wedata))
+train <- wedata[train_rows,]
+test <-wedata[-train_rows,]
+
+head(train)
+```
+
+## Run a basic Tree Model as a baseline
+
+```{r}
+library(rpart)
+control <- trainControl(method="repeatedcv", number=2, repeats = 1)
+
+fit <- train(province ~ .,
+             data = train, 
+             trControl = control,
+             method = "rpart")
+
+fit
+pred <- predict(fit, newdata=test)
+confusionMatrix(as.factor(pred),factor(test$province))
+```
+
+## Bagging
+
+- Bootstrap aggregating
+- Builds multiple models with bootstrap samples (combinations with repetitions) using a single algorithm. 
+- The models’ predictions are combined with voting (for classification) or averaging (for numeric prediction). 
+- Voting means the bagging model’s prediction is based on the majority of learners’ prediction for a class. 
+
+## Treebag
+
+```{r}
+
+fit <- train(province ~ .,
+             data = train, 
+             trControl = control,
+             method = "treebag")
+
+fit
+pred <- predict(fit, newdata=test)
+confusionMatrix(as.factor(pred),factor(test$province))
+```
+
+## Boosting
+
+> A horse-racing gambler, hoping to maximize his winnings, decides to create a computer program that will accurately predict the winner of a horse race based on the usual information (number of races recently won by each horse, betting odds for each horse, etc.). To create such a program, he asks a highly successful expert gambler to explain his betting strategy. Not surprisingly, the expert is unable to articulate a grand set of rules for selecting a horse. On the other hand, when presented with the data for a specific set of races, the expert has no trouble coming up with a “rule of thumb” for that set of races (such as, “Bet on the horse that has recently won the most races” or “Bet on the horse with the most favored odds”). Although such a rule of thumb, by itself, is obviously very rough and inaccurate, it is not unreasonable to expect it to provide predictions that are at least a little bit better than random guessing. Furthermore, by repeatedly asking the expert’s opinion on different collections of races, the gambler is able to extract many rules of thumb.
+
+> In order to use these rules of thumb to maximum advantage, there are two problems faced by the gambler:
+
+> First, how should he choose the collections of races presented to the expert so as to extract rules of thumb from the expert that will be the most useful?
+
+> Second, once he has collected many rules of thumb, how can they be combined into a single, highly accurate prediction rule?
+
+> Boosting refers to a general and provably effective method of producing a very accurate prediction rule by combining rough and moderately inaccurate rules of thumb in a manner similar to that suggested above
+
+https://cseweb.ucsd.edu/~yfreund/papers/IntroToBoosting.pdf
+
+![](images/boosted-trees-process.png)
+
+## Random Forest (several deep trees)
+
+```{r}
+library(randomForest)
+fit <- train(province ~ .,
+             data = train, 
+             trControl = control,
+             method = "rf")
+
+fit
+pred <- predict(fit, newdata=test)
+confusionMatrix(as.factor(pred),factor(test$province))
+```
+
+## Gradient Boosting (many, many shallow trees)
+```{r}
+library(gbm)
+fit <- train(province ~ .,
+             data = train, 
+             trControl = control,
+             method = "gbm")
+
+fit
+pred <- predict(fit, newdata=test)
+confusionMatrix(as.factor(pred),factor(test$province))
+```
+
+
+## Custom Ensembles?
+
+https://cran.r-project.org/web/packages/caretEnsemble/vignettes/caretEnsemble-intro.html
+
+## Model Comparison
+
+```{r}
+library(doParallel)
+cl <- makePSOCKcluster(4)
+registerDoParallel(cl)
+system.time({
+  rpart.fit <- train(province~., data = train, method="rpart",trControl=control);
+  treebag.fit <- train(province~., data = train, method="treebag", trControl=control);
+  rf.fit <- train(province~., data = train, method="rf", trControl=control);
+  gbm.fit <- train(province~., data = train, method="gbm", trControl=control)
+})
+
+stopCluster(cl) # close multi-core cluster
+rm(cl)
+
+results <- resamples(list(DecisionTree=rpart.fit, BaggedTree=treebag.fit, RandomForest=rf.fit, GradientBoost=gbm.fit))
+
+# summary of model differences
+summary(results)
+```
+
+
+# References
+
+https://bradleyboehmke.github.io/HOML/gbm.html
+https://towardsdatascience.com/understanding-the-bias-variance-tradeoff-165e6942b229
+
