@@ -1,0 +1,68 @@
+---
+title: "Bagging, Boosting and Custom Ensembles"
+author: "Jameson Watts, Ph.D."
+date: "04/18/2020"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+## Agenda
+
+1. Template for presenting technical work
+2. Review for Final exam
+3. Breakout sessions
+
+# Review for final exam
+
+1. Feature Engineering
+    - Encoding categorical vairables
+    - Interactions
+    - Transformations
+    - Standardizing
+2. KNN
+    - How does it work?
+    - Accuraccy vs. Kappa
+    - Leakage
+    - Tuning
+    - Classification vs. Regression
+    - Confusion Matrix
+3. Naive Bayes
+    - How does it work?
+    - What is a conditional probability?
+4. Tidytext
+    - Document-term matrix
+    - tokens, stems, bigrams
+5. Logistic Regression
+    - How does it work?
+    - Why is it called regression and not classification?
+    - ROC curves
+    - Regularization
+6. Decision Trees
+    - How do they work?
+    - What is information gain?
+    - What is the complexity parameter?
+    - What does weighting the classes accomplish?
+    - How do random forests work? 
+    - What are the strengths / weaknesses?
+7. Dimensionality Reduction
+    - What is curse of dimensionality?
+    - Kmeans 
+    - Hierarchical
+    - Principle Component Analysis
+8. Deep Learning
+    - Nodes
+    - Weights
+    - Activation Function (relu vs. softmax)
+    - Back propogation
+    - Epoch
+    - Batch Size
+    - Regularization (L1, L2, and dropout)
+    - Hyperparameters
+9. Meta-techniques
+    - Variance vs. Bias tradeoff
+    - Bagging 
+    - Boosting
+    - Ensembles

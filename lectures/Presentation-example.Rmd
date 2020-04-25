@@ -1,0 +1,75 @@
+---
+title: "Anatomy of a technical presentation"
+author: "Jameson Watts, Ph.D."
+date: "04/25/2020"
+output:
+  ioslides_presentation:
+    widescreen: yes
+    incremental: yes
+    df_print: kable
+    fig_width: 10
+---
+
+<style>
+strong{
+  color: #018080;
+}
+table.rmdtable th {
+    color: black;
+    background: #dbc4cA;
+}
+table.rmdtable td {
+    padding: 0.5em 0.5em;
+}
+</style>
+
+
+## Agenda
+
+1. First I'm going to talk about
+2. Then this happens
+3. This interesting thing comes next
+4. Bam! ...minds blown.
+
+## Overview
+
+- Research question
+- Headline results
+  - Sub result 1
+  - Sub result 2
+- Summary of impact
+
+## Background
+
+- Give folks some understanding of the context within which you are operating
+- Discuss the contextual and/or theoretcial basis for your approach
+
+## Methods (1-3 slides)
+
+- Feature Engineering
+- Model Selection and Tuning
+- Model-level metrics and validity
+
+## Results
+
+- Accuracy, Kappa, etc.
+- Impact of different features
+- How should results be interpreted?
+- Impact on Organization?
+
+## Limitations
+
+- What data do you wish you had?
+- Where are the models failing and why?
+- What is unreliable about the features in your model?
+
+## Conclusion
+
+- Repeat research question
+- Remind audience of the context and justifictions for your method
+- Restate results and impact on organization
+
+## Backup Slides and References
+
+- More technical slides used to help answer questions
+- References to literature justifying your approach
