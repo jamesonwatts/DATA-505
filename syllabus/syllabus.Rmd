@@ -7,7 +7,7 @@ output:
     template: template.tex
 geometry: margin=1in
 
-title: "DATA 504: Applied Machine Learning"
+title: "DATA 505: Applied Machine Learning"
 author: Jameson Watts, Ph.D.
 date: "Spring 2021"
 
