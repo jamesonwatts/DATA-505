@@ -1,0 +1,95 @@
+---
+title: "Homework 1"
+author: ""
+date: "01/25/2021"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+**Directions:**
+
+Please turn in **both** a knitted HTML file *and* your Rmd file on WISE.
+
+Good luck!
+
+# Setup (5pts)
+
+Change the author of this RMD file to be yourself and modify the below code so that you can successfully load the 'wine.rds' data file from your own computer. In the space provided after the R chunk, explain what this code is doing (line by line).
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+
+wine <- read_rds("../resources/wine.rds") %>%
+  filter(province=="Oregon" | province == "California" | province == "New York") %>% 
+  mutate(cherry=as.integer(str_detect(description,"[Cc]herry"))) %>% 
+  mutate(lprice=log(price)) %>% 
+  select(lprice, points, cherry, province)
+```
+
+**Answer:** (write your line-by-line explanation of the code here)
+
+
+# Multiple Regression
+
+## (2pts)
+
+Run a linear regression model with log of price as the dependent variable and 'points' and 'cherry' as features (variables). Report the RMSE.
+
+```{r}
+# hint: m1 <- lm(lprice ~ points + cherry)
+```
+
+
+## (2pts)
+
+Run the same model as above, but add an interaction between 'points' and 'cherry'. 
+
+```{r}
+
+```
+
+## (3pts)
+
+How should I interpret the coefficient on the interaction variable? Please explain as you would to a non-technical manager.
+
+**Answer:** (write your answer here)
+
+## (Bonus: 1pt)
+
+In which province (Oregon, California, or New York), does the 'cherry' feature in the data affect price most? Show your code and write the answer below.
+
+```{r}
+
+```
+
+**Answer:** (write your answer here)
+
+
+# Data Ethics
+
+## (3pts)
+
+Imagine that you are a manager at an E-commerce operation that sells wine online. Your employee has been building a model to distinguish New York wines from those in California and Oregon. After a few days of work, your employee bursts into your office and exclaims, "I've achieved 91% accuracy on my model!" 
+
+Should you be impressed? Why or why not? Use simple descriptive statistics from the data to justify your answer.
+
+```{r}
+```
+
+**Answer:** (describe your reasoning here)
+
+## (3pts)
+
+Why is understanding the vignette in the previous question important if you want to use machine learning in an ethical manner?
+
+**Answer:** (describe your reasoning here)
+
+## (3pts)
+
+Imagine you are working on a model to predict the likelihood that an individual loses their job as the result of the Corona virus. You have a very large dataset with many hundreds of features, but you are worried that including indicators like age, income or gender might pose some ethical problems. When you discuss these concerns with your boss, she tells you to simply drop those features from the model. Does this solve the ethical issue? Why or why not?
+
+**Answer:** (describe your reasoning here)

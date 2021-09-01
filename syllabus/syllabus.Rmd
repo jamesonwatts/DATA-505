@@ -1,0 +1,183 @@
+---
+output: 
+  pdf_document:
+    keep_tex: true
+    fig_caption: yes
+    latex_engine: pdflatex
+    template: template.tex
+geometry: margin=1in
+
+title: "DATA 504: Applied Machine Learning"
+author: Jameson Watts, Ph.D.
+date: "Spring 2021"
+
+email: "jwatts@willamette.edu"
+web: "jamesonwatts.com"
+officehours: "[Click Here](https://calendar.google.com/calendar/u/0/selfsched?sstoken=UUltRXJtZHQwTXlHfGRlZmF1bHR8YzBkZmIzM2IwZDg4ODhiNDc0NTgzZTAwOGU2YTI3ZDk) for Appointment"
+office: "209 Mudd Building"
+classroom: "*online*"
+classhours: "M 06:00-09:50 p.m."
+
+fontfamily: mathpazo
+fontsize: 11pt
+header-includes:
+   - \linespread{1.05}
+---
+
+```{r setup, include=FALSE, cache=F, message=F, warning=F, results="hide"}
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(fig.path='figs/')
+knitr::opts_chunk$set(cache.path='_cache/')
+knitr::opts_chunk$set(warning=F, message=F)
+# knitr::opts_knit$get(kable.force.latex = TRUE)
+```
+
+
+
+```{r dates_bib, include=FALSE}
+knitr::opts_chunk$set(cache=FALSE, dev='pdf')
+mon <- as.Date("2021-01-11")
+# fri <- as.Date("2016-01-08")
+
+advdate <- function(obj, adv) {
+ tmon <- obj + 7*(adv-1)
+ tfri <- obj + 4 + 7*(adv-1)
+ tmon <- format(tmon, format="%m/%d")
+ # tfri <- format(tfri, format="%m/%d")
+ zadv <- sprintf("%02d", adv)
+ tmp <- paste("Week ",zadv,sep='',", ", tmon)
+ return(tmp)
+}
+
+```
+
+# Course Description
+
+Machine learning is becoming a core component of many modern organizational processes. It is a growing field at the intersection of computer science and statistics focused on finding patterns in data. Prominent applications include personalized recommendations, image processing and speech recognition. This course will focus on the application of existing machine learning libraries to practical problems faced by organizations. Through lectures, cases and programming projects, students will learn how to use machine learning to solve real world problems, run evaluations and interpret their results.
+
+# Course Format
+
+This course employs various methods, including formal presentations by the instructor, case discussions, simulations, and in-class activities---the approach used depends largely on the class material for a given week. Active participation is paramount to your success in this course. Students are expected to question, challenge, or clarify the material as it is being presented, and to discuss issues/questions raised by your colleagues and/or the instructor. 
+
+# Course Objectives
+
+1. Creatively engineer new features to help with model performance
+2. Identify and correct for sample bias, association bias, and leakage
+3. Implement common machine learning algorithms and interpret the results
+4. Use an application interface to run a deep learning model
+5. Effectively communicate model results in writing and in person
+
+# Course Materials
+- Base R, [Install from here](https://cran.r-project.org/)
+- Latest Version of RStudio, [Install from here](https://www.rstudio.com/products/rstudio/download)
+- Various free resources (links are in the schedule on the syllabus)
+- Willamette RStudio Server (tentative): [Click here](https://rstudio-ds.willamette.edu/auth-sign-in)
+
+
+# Graded Items
+
+- Homework Assignments: **25\%**
+- Midterm Exam: **25\%** 
+- Model Performance (x3): **30\%** 
+- Final Exam: **10\%** 
+- Group Presentations: **10\%** 
+
+# Grade Distribution
+
+| Percentage | Grade |
+|----------|---------|
+|\> 95.00| A | 
+|90.00 - 94.99 | A- |  
+|85.00 - 89.99 | B+ | 
+|80.00 - 84.99 | B  |
+|75.00 - 79.99 | B- |  
+|60.00 - 74.99 | C |  
+|\< 60.00 | F | 
+
+# Assignments
+\begin{itemize}
+
+			
+	\item \textbf{Homework Assignments (25\%):} You will be assigned 6 individual homework assignments over the course of the semester. These will typically involve writing some code and "knitting" a file to pdf or html in order to turn it in. Your lowest score will be dropped.
+	
+	\item \textbf{Exams (35\%):} We will have one midterm exam worth 25\% of your grade. This exam will involve writing code to complete various machine learning tasks. You can expect to be given a dataset and a series of questions to answer using the skills developed during the course. You will have three hours to complete this exam. Your final exam will be much shorter and largely conceptual in nature. You will have 90 minutes to complete the final. Exams are open everything (book, notes, internet), EXCEPT communication with others.
+
+	\item \textbf{Machine Learning Models and Presentation (40\%):} Over the course of the semester you will be working in a group tasked with creating several models that classify and/or predict some feature of our wine dataset. For each modeling assignment, I will provide the training and test data used to develop and measure your model's performance. Your group will have three opportunities to build a machine learning model. At each of these opportunities, the relative performance of your model determines your grade---the top group earns 20 points, 19 for second place 18 points for third place, 17 points for fourth, and 16 points for 5th. During our last class you will present your model results as though you are speaking to the managers of a large winery. Details and expectations will be clarified in class.
+\end{itemize}
+
+\newpage
+
+# Course Policies
+
+Detailed policies for this course are below. Basically, don't cheat and try to learn stuff. 
+
+- Video must be turned on in the Zoom call and names displayed.
+- No private chat
+- No late assignments except in **very rare** cases of personal or family emergency.
+- Students with disabilities who require accommodation should notify me of the nature of accommodation you require in the first week of class.  Additional support is available from the Willamette University [Accessible Education Services Office](www.willamette.edu/dept/disability), telephone 503-370-6471.
+- Students are responsible for all missed work, regardless of the reason for absence. It is also the absentee's responsibility to get all missing notes or materials. 
+- Every student is expected at all times to abide by the Willamette University [Atkinson Graduate School of Management Honor Code](http://www.willamette.edu/mba/about/honorcode).
+		\item You must also abide by the Application to Academic Honesty as detailed in the [current student handbook](http://www.willamette.edu/mba/students/student-handbook).
+
+
+\newpage
+
+# Course Schedule
+
+##  `r advdate(mon, 1)`: Machine Learning Overview
+
+- Read the syllabus
+- Read Chapter 1 of [this book](https://srdas.github.io/MLBook/DataScience.html)
+- Dust off your tidyverse skills
+
+##  `r advdate(mon, 2)`: \textcolor{Plum}{No Class: MLK}
+
+##  `r advdate(mon, 3)`: Feature Engineering I & Variable Selection
+
+- Read the Preface and Ch. 1 of [this book](http://www.feat.engineering/)
+- *\textcolor{Bittersweet}{Homework 1 due}*
+
+## *\textcolor{OliveGreen}{---Supervised Learning---}*
+
+##  `r advdate(mon, 4)`: K-Nearest Neighbors
+
+- *\textcolor{Bittersweet}{Homework 2 due}*
+
+##  `r advdate(mon, 5)`: Naive Bayes
+
+- *\textcolor{Bittersweet}{Homework 3 due}*
+
+##  `r advdate(mon, 6)`: Logistic Regression
+
+- *\textcolor{Bittersweet}{Homework 4 due}*
+
+##  `r advdate(mon, 7)`: Decision Trees
+
+- *\textcolor{Bittersweet}{Homework 5 due}*
+
+##  `r advdate(mon, 8)`: Boosting and Bagging
+
+##  `r advdate(mon, 9)`: Review
+
+- *\textcolor{Bittersweet}{First group model due}*
+
+##  `r advdate(mon, 10)`: Mid-term Exam
+
+##  `r advdate(mon, 11)`: \textcolor{Plum}{No Class: Spring Break}
+
+## *\textcolor{OliveGreen}{---Unsupervised Learning---}*
+
+##  `r advdate(mon, 12)`: Feature Engineering II & Dimensionality Reduction
+
+## `r advdate(mon, 13)`:  Clustering
+
+- *\textcolor{Bittersweet}{Second group model due}*
+
+##  `r advdate(mon, 14)`: The Tidy Models Package
+
+##  `r advdate(mon, 15)`: Deep Learning and Ensembles
+
+- *\textcolor{Bittersweet}{Final group model due}*
+
+##  `r advdate(mon, 16)`: Final Exam and Team Presentations
+

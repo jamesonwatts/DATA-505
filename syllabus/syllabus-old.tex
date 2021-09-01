@@ -1,0 +1,190 @@
+
+% Document settings
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[pdftex]{graphicx}
+%\usepackage{multirow}
+%\usepackage[table]{xcolor}% http://ctan.org/pkg/xcolor
+%\usepackage{setspace}
+\pagestyle{plain}
+\setlength\parindent{0pt}
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+}
+
+\usepackage{array}
+\usepackage{longtable}
+%\usepackage{enumitem}
+\begin{document}
+
+% Course information
+\begin{tabular}{ l l }
+  \multirow{3}{*}{\includegraphics[height=1.25in]{logo.png}} & \LARGE GSMDS 5004 (Spring 2020) \\\\
+  &\large Applied Machine Learning \\\\
+  & \large Saturdays, 9:00 to 12:00 pm\\\\
+\end{tabular}
+\vspace{10mm}
+
+% Professor information
+\begin{tabular}{ l l }
+  & \large Instructor: \textbf{Jameson Watts, Ph.D.} \\\\
+  & \large Email: jwatts@willamette.edu \\
+  & \large Office Hours: Before and after class \\
+\end{tabular}
+\vspace{5mm}
+
+%\begin{center} \textit{Note: This syllabus is a draft and certain details may change before the semester starts} \\\end{center}
+
+% Course details
+\textbf {\large \\ Course Description:} Machine learning is becoming a core component of many modern organizational processes. It is a growing field at the intersection of computer science and statistics focused on finding patterns in data. Prominent applications include personalized recommendations, image processing and speech recognition. This course will focus on the application of existing machine learning libraries to practical problems faced by organizations. Through lectures, cases and programming projects, students will learn how to use machine learning to solve real world problems, run evaluations and interpret their results. \\
+
+% Course format
+\textbf {\large \\ Course Format:} This course employs various pedagogies, including formal presentations by the instructor, case discussions, simulations, and in-class activities---the approach used depends largely on the class material for a given week. Active participation is paramount to your success in this course. Students are expected to question, challenge, or clarify the material as it is being presented, and to discuss issues/questions raised by your colleagues and/or the instructor.  \\\\
+
+%\textbf {Prerequisite(s):} None.
+
+\textbf {\large Course Materials:}
+\begin{enumerate} 
+\itemsep-0.4em
+  \item Base R, \href{https://cran.r-project.org/}{Install from here}
+  \item Latest Version of RStudio, \href{https://www.rstudio.com/products/rstudio/download}{Install from here}
+  \item Anaconda, \href{https://www.anaconda.com/}{Install from here}
+  \item DataCamp Classroom (DCC), \href{https://www.datacamp.com/groups/shared_links/db3e44b82178c299ff29d556b1dc88766f38317e}{Join here}
+  \item Various free resources (links are in the schedule on the syllabus)
+  \item (Optional) Data Science from Scratch, \href{https://www.amazon.com/Data-Science-Scratch-Principles-Python/dp/1492041130/}{Purchase here}
+  \end{enumerate}
+
+\newpage
+
+%\vspace*{5mm}
+
+
+\textbf {\large Course Learning Objectives:} \\
+At the completion of this course, students will be able to:
+{\footnotesize
+\begin{enumerate} 
+	\item Describe the major ethical issues facing data scientists
+	\item Creatively engineer new features to help with model performance
+	\item Implement and diagnose some of the most common supervised and unsupervised machine learning algorithms
+	\item Use an application interface to run a deep learning model in the cloud
+	\item Communicate model results in writing and in person, in a format appropriate for consumption by non-data scientists
+\end{enumerate}
+}
+%\newpage
+% Course Outline
+\textbf {\large Course Outline}:
+
+%\setlist{nosep,labelindent=\parindent,leftmargin=*,label={--}}
+\def\arraystretch{1.5}%  1 is the default, change whatever you need
+{\footnotesize
+\begin{longtable}{ | c | c | p{5.5cm} | p{7.5cm} |}
+\hline
+\hline
+\textbf{Class} & \textbf{Date} & \textbf{Class Topics} & \textbf{Reading and Assignments} \\
+\hline
+\hline
+1 & 01/18 & Course Overview, Data Ethics \& Review of Multiple Regression & Read the syllabus; Read Chapter 1 of \href{https://srdas.github.io/MLBook/DataScience.html}{this book} \\
+\hline
+\hline
+\multicolumn{4}{c}{\cellcolor{gray!25}\textbf{Supervised Learning}} \\
+\hline
+\hline
+2 &01/25 & Feature Engineering I \& Variable Selection & Read the Preface and Ch. 1 of \href{http://www.feat.engineering/}{this book}  \\
+\hline
+3 &02/01 & k-Nearest Neighbors &  DCC: k-Nearest Neighbors\\
+\hline
+4 & 02/08 & Naive Bayes &  DCC: Naive Bayes \\
+\hline
+- & 02/15 & \textbf{No Class} & \\
+\hline
+5 & 02/22 & Logistic Regression & DCC: Logistic Regression  \\
+\hline
+- & 02/29 & \textbf{No Class} &  \\
+\hline
+6 & 03/07 & Decision Trees & DCC: Classification Trees; \textbf{First group model due}  \\
+\hline
+7 & 03/14 & Mid-term Exam & \\
+\hline
+\hline
+\multicolumn{4}{c}{\cellcolor{gray!25}\textbf{Unsupervised Learning}} \\
+\hline
+\hline
+8 & 03/21 & k-Means \& Hierarchical Clustering &  DCC: Unsupervised Learning in R; DCC: Hierarchical Clustering \\
+\hline
+9 & 03/28 & Feature Engineering II \& Principle Component Analysis & DCC: Dimensionality Reduction with PCA; DCC: Putting it all Together with a Case Study  \\
+\hline
+10 & 04/04 & Deep Learning I & DCC: Introducing TensorFlow in R; DCC: Linear Regression using Two TensorFlow APIs;  \textbf{Second group model due}\\
+\hline
+11 & 04/11 & Deep Learning II  &  DCC: Deep Learning in TensorFlow: Creating a Deep Neural Network; DCC: Deep Learning in TensorFlow: Increasing Model Accuracy \\
+\hline
+12 & 04/18 & Boosting and Ensemble Methods  & Read \href{https://xgboost.readthedocs.io/en/latest/R-package/xgboostPresentation.html}{this Vignette} \& \href{https://cran.r-project.org/web/packages/caretEnsemble/vignettes/caretEnsemble-intro.html}{this Vignette}  \\
+\hline
+13 & 04/25 & Visualizing and Reporting your Models & Read \href{https://www.jwilber.me/nest/}{this Tutorial} \\
+\hline
+14 & 05/02 & Final Exam \& Team Presentations & \textbf{Final group model due} \\
+\hline
+\end{longtable}}
+
+\newpage
+\def\arraystretch{1}%  1 is the default, change whatever you need
+%\vspace*{5mm}
+\textbf {\large Summary:} \\\\
+\hspace*{10mm}
+\begin{tabular}{ l | r } 
+\textbf{Assignment} & \textbf{Percentage} \\
+\hline
+Datacamp Assignments & 25\% \\
+Midterm Exam & 25\% \\
+Model Performance (x3) & 30\% \\
+Final Exam &  10\% \\
+Group Presentations &  10\% \\
+\hline
+\textbf{Total} & 100\% \\
+\end{tabular} \\\\
+
+\textbf {\large Grade Distribution:} \\\\
+\hspace*{10mm}
+\begin{tabular}{ l l }
+\textgreater= 95.00 & A \\
+90.00 - 94.99 & A-  \\
+85.00 - 89.99 & B+   \\
+80.00 - 84.99 & B  \\
+75.00 - 79.99 & B-  \\
+60.00 - 74.99 & C  \\
+\textless= 60.00 & F \\
+\end{tabular} \\\\
+
+\textbf {\large Assignments:}
+\begin{itemize}
+
+			
+	\item \textbf{Homework Assignments (25\%):} Homework assignments consist of completing the assigned chapters within the DataCamp Classroom and doing the assigned reading. Simply completing the assignments on time will give you full credit.
+	
+	\item \textbf{Exams (35\%):} We will have one midterm exam worth 25\% of your grade. This exam will involve writing code to complete various supervised machine learning tasks. You can expect to be given a dataset and a series of questions to answer using the skills developed during the course. You will have three hours to complete this exam. Your final exam will be much shorter and largely conceptual in nature. You will have 90 minutes to complete the final. Exams are open everything (book, notes, internet), EXCEPT communication with others.
+
+	\item \textbf{Classification Models and Presentation (40\%):} Over the course of the semester you will be working in a group tasked with creating a model that classifies wine. Early in the semester I will provide a training and test set upon which to measure your model's performance. Your group will have three opportunities to build and improve their model. At each of these opportunities, the relative performance of your model determines your grade---the top group earns 20 points, 19 for second place and 18 points for third place. During our last class you will present your model. Details and expectations will be clarified in class.
+\end{itemize}
+
+\newpage
+\textbf {\large Course Policies:}
+\begin{itemize}
+			\item Name tents must be used for the first month of classes---I am a chronically absent-minded professor, and pretty bad with names. I promise an attempt to memorize everyone's moniker, but name tents guarantee that my deficiency does not lead to continuous embarrassment. 
+			\item Collaboration is encouraged both during and outside of the classroom. Students may work together to prepare for exams; however, each student will be on their own when taking the exams in class. 
+			\item No late assignments will be accepted under any circumstance except in rare cases of personal or family emergency.
+			\item Students with disabilities who require accommodation should notify me of the nature of accommodation you require in the first week of class.  Additional support is available from the Willamette University Accessible Education Services Office (\href{www.willamette.edu/dept/disability}{www.willamette.edu/dept/disability}), telephone 503-370-6471.
+			\item Students are responsible for all missed work, regardless of the reason for absence. It is also the absentee's responsibility to get all missing notes or materials. 
+			
+		\item Every student is expected at all times to abide by the Willamette University Atkinson Graduate School of Management Honor Code (\href{http://www.willamette.edu/mba/about/honorcode/index.html}{http://www.willamette.edu/mba/about/honorcode}).
+		\item You must also abide by the Application to Academic Honesty as detailed in the current student handbook (\href{http://www.willamette.edu/mba/students/student-handbook/}{http://www.willamette.edu/mba/students/student-handbook}).
+		\end{itemize}
+
+
+\end{document}
+
+
+

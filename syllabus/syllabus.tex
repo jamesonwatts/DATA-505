@@ -1,190 +1,425 @@
-
-% Document settings
-\documentclass[11pt]{article}
+\documentclass[11pt,]{article}
 \usepackage[margin=1in]{geometry}
-\usepackage[pdftex]{graphicx}
-\usepackage{multirow}
-\usepackage[table]{xcolor}% http://ctan.org/pkg/xcolor
-\usepackage{setspace}
-\pagestyle{plain}
-\setlength\parindent{0pt}
+\newcommand*{\authorfont}{\fontfamily{phv}\selectfont}
+\usepackage[]{mathpazo}
+\usepackage{abstract}
+\renewcommand{\abstractname}{}    % clear the title
+\renewcommand{\absnamepos}{empty} % originally center
+\newcommand{\blankline}{\quad\pagebreak[2]}
 
-\usepackage{hyperref}
-\hypersetup{
-    colorlinks=true,
-    linkcolor=blue,
-    filecolor=magenta,      
-    urlcolor=cyan,
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}} 
+\usepackage{longtable,booktabs}
+
+\usepackage{parskip}
+\usepackage{titlesec}
+\titlespacing\section{0pt}{12pt plus 4pt minus 2pt}{6pt plus 2pt minus 2pt}
+\titlespacing\subsection{0pt}{12pt plus 4pt minus 2pt}{6pt plus 2pt minus 2pt}
+
+\titleformat*{\subsubsection}{\normalsize\itshape}
+
+\usepackage{titling}
+\setlength{\droptitle}{-.25cm}
+
+%\setlength{\parindent}{0pt}
+%\setlength{\parskip}{6pt plus 2pt minus 1pt}
+%\setlength{\emergencystretch}{3em}  % prevent overfull lines 
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\usepackage{lastpage}
+\renewcommand{\headrulewidth}{0.3pt}
+\renewcommand{\footrulewidth}{0.0pt} 
+\lhead{}
+\chead{}
+\rhead{\footnotesize DATA 504: Applied Machine Learning -- Spring 2021}
+\lfoot{}
+\cfoot{\small \thepage/\pageref*{LastPage}}
+\rfoot{}
+
+\fancypagestyle{firststyle}
+{
+\renewcommand{\headrulewidth}{0pt}%
+   \fancyhf{}
+   \fancyfoot[C]{\small \thepage/\pageref*{LastPage}}
 }
 
-\usepackage{array}
+%\def\labelitemi{--}
+%\usepackage{enumitem}
+%\setitemize[0]{leftmargin=25pt}
+%\setenumerate[0]{leftmargin=25pt}
+
+
+
+
+\makeatletter
+\@ifpackageloaded{hyperref}{}{%
+\ifxetex
+  \usepackage[setpagesize=false, % page size defined by xetex
+              unicode=false, % unicode breaks when used with xetex
+              xetex]{hyperref}
+\else
+  \usepackage[unicode=true]{hyperref}
+\fi
+}
+\@ifpackageloaded{color}{
+    \PassOptionsToPackage{usenames,dvipsnames}{color}
+}{%
+    \usepackage[usenames,dvipsnames]{color}
+}
+\makeatother
+\hypersetup{breaklinks=true,
+            bookmarks=true,
+            pdfauthor={ ()},
+             pdfkeywords = {},  
+            pdftitle={DATA 504: Applied Machine Learning},
+            colorlinks=true,
+            citecolor=blue,
+            urlcolor=blue,
+            linkcolor=magenta,
+            pdfborder={0 0 0}}
+\urlstyle{same}  % don't use monospace font for urls
+
+
+\setcounter{secnumdepth}{0}
+
 \usepackage{longtable}
-\usepackage{enumitem}
-\begin{document}
-
-% Course information
-\begin{tabular}{ l l }
-  \multirow{3}{*}{\includegraphics[height=1.25in]{logo.png}} & \LARGE GSMDS 5004 (Spring 2020) \\\\
-  &\large Applied Machine Learning \\\\
-  & \large Saturdays, 9:00 to 12:00 pm\\\\
-\end{tabular}
-\vspace{10mm}
-
-% Professor information
-\begin{tabular}{ l l }
-  & \large Instructor: \textbf{Jameson Watts, Ph.D.} \\\\
-  & \large Email: jwatts@willamette.edu \\
-  & \large Office Hours: Before and after class \\
-\end{tabular}
-\vspace{5mm}
-
-%\begin{center} \textit{Note: This syllabus is a draft and certain details may change before the semester starts} \\\end{center}
-
-% Course details
-\textbf {\large \\ Course Description:} Machine learning is becoming a core component of many modern organizational processes. It is a growing field at the intersection of computer science and statistics focused on finding patterns in data. Prominent applications include personalized recommendations, image processing and speech recognition. This course will focus on the application of existing machine learning libraries to practical problems faced by organizations. Through lectures, cases and programming projects, students will learn how to use machine learning to solve real world problems, run evaluations and interpret their results. \\
-
-% Course format
-\textbf {\large \\ Course Format:} This course employs various pedagogies, including formal presentations by the instructor, case discussions, simulations, and in-class activities---the approach used depends largely on the class material for a given week. Active participation is paramount to your success in this course. Students are expected to question, challenge, or clarify the material as it is being presented, and to discuss issues/questions raised by your colleagues and/or the instructor.  \\\\
-
-%\textbf {Prerequisite(s):} None.
-
-\textbf {\large Course Materials:}
-\begin{enumerate} 
-\itemsep-0.4em
-  \item Base R, \href{https://cran.r-project.org/}{Install from here}
-  \item Latest Version of RStudio, \href{https://www.rstudio.com/products/rstudio/download}{Install from here}
-  \item Anaconda, \href{https://www.anaconda.com/}{Install from here}
-  \item DataCamp Classroom (DCC), \href{https://www.datacamp.com/groups/shared_links/db3e44b82178c299ff29d556b1dc88766f38317e}{Join here}
-  \item Various free resources (links are in the schedule on the syllabus)
-  \item (Optional) Data Science from Scratch, \href{https://www.amazon.com/Data-Science-Scratch-Principles-Python/dp/1492041130/}{Purchase here}
-  \end{enumerate}
-
-\newpage
-
-%\vspace*{5mm}
 
 
-\textbf {\large Course Learning Objectives:} \\
-At the completion of this course, students will be able to:
-{\footnotesize
-\begin{enumerate} 
-	\item Describe the major ethical issues facing data scientists
-	\item Creatively engineer new features to help with model performance
-	\item Implement and diagnose some of the most common supervised and unsupervised machine learning algorithms
-	\item Use an application interface to run a deep learning model in the cloud
-	\item Communicate model results in writing and in person, in a format appropriate for consumption by non-data scientists
+
+
+\usepackage{setspace}
+
+\title{DATA 504: Applied Machine Learning}
+\author{Jameson Watts, Ph.D.}
+\date{Spring 2021}
+
+
+\begin{document}  
+
+		\maketitle
+		
+	
+		\thispagestyle{firststyle}
+
+%	\thispagestyle{empty}
+
+
+	\noindent \begin{tabular*}{\textwidth}{ @{\extracolsep{\fill}} lr @{\extracolsep{\fill}}}
+
+
+E-mail: \texttt{\href{mailto:jwatts@willamette.edu}{\nolinkurl{jwatts@willamette.edu}}} & Web: \href{http://jamesonwatts.com}{\tt jamesonwatts.com}\\
+Office Hours: \href{https://calendar.google.com/calendar/u/0/selfsched?sstoken=UUltRXJtZHQwTXlHfGRlZmF1bHR8YzBkZmIzM2IwZDg4ODhiNDc0NTgzZTAwOGU2YTI3ZDk}{Click
+Here} for Appointment  &  Class Hours: M 06:00-09:50 p.m.\\
+Office: 209 Mudd Building  & Class Room: \emph{online}\\
+	&  \\
+	\hline
+	\end{tabular*}
+	
+\vspace{2mm}
+	
+
+
+\hypertarget{course-description}{%
+\section{Course Description}\label{course-description}}
+
+Machine learning is becoming a core component of many modern
+organizational processes. It is a growing field at the intersection of
+computer science and statistics focused on finding patterns in data.
+Prominent applications include personalized recommendations, image
+processing and speech recognition. This course will focus on the
+application of existing machine learning libraries to practical problems
+faced by organizations. Through lectures, cases and programming
+projects, students will learn how to use machine learning to solve real
+world problems, run evaluations and interpret their results.
+
+\hypertarget{course-format}{%
+\section{Course Format}\label{course-format}}
+
+This course employs various methods, including formal presentations by
+the instructor, case discussions, simulations, and in-class
+activities---the approach used depends largely on the class material for
+a given week. Active participation is paramount to your success in this
+course. Students are expected to question, challenge, or clarify the
+material as it is being presented, and to discuss issues/questions
+raised by your colleagues and/or the instructor.
+
+\hypertarget{course-objectives}{%
+\section{Course Objectives}\label{course-objectives}}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Creatively engineer new features to help with model performance
+\item
+  Identify and correct for sample bias, association bias, and leakage
+\item
+  Implement common machine learning algorithms and interpret the results
+\item
+  Use an application interface to run a deep learning model
+\item
+  Effectively communicate model results in writing and in person
 \end{enumerate}
-}
-%\newpage
-% Course Outline
-\textbf {\large Course Outline}:
 
-%\setlist{nosep,labelindent=\parindent,leftmargin=*,label={--}}
-\def\arraystretch{1.5}%  1 is the default, change whatever you need
-{\footnotesize
-\begin{longtable}{ | c | c | p{5.5cm} | p{7.5cm} |}
-\hline
-\hline
-\textbf{Class} & \textbf{Date} & \textbf{Class Topics} & \textbf{Reading and Assignments} \\
-\hline
-\hline
-1 & 01/18 & Course Overview, Data Ethics \& Review of Multiple Regression & Read the syllabus; Read Chapter 1 of \href{https://srdas.github.io/MLBook/DataScience.html}{this book} \\
-\hline
-\hline
-\multicolumn{4}{c}{\cellcolor{gray!25}\textbf{Supervised Learning}} \\
-\hline
-\hline
-2 &01/25 & Feature Engineering I \& Variable Selection & Read the Preface and Ch. 1 of \href{http://www.feat.engineering/}{this book}  \\
-\hline
-3 &02/01 & k-Nearest Neighbors &  DCC: k-Nearest Neighbors\\
-\hline
-4 & 02/08 & Naive Bayes &  DCC: Naive Bayes \\
-\hline
-- & 02/15 & \textbf{No Class} & \\
-\hline
-5 & 02/22 & Logistic Regression & DCC: Logistic Regression  \\
-\hline
-- & 02/29 & \textbf{No Class} &  \\
-\hline
-6 & 03/07 & Decision Trees & DCC: Classification Trees; \textbf{First group model due}  \\
-\hline
-7 & 03/14 & Mid-term Exam & \\
-\hline
-\hline
-\multicolumn{4}{c}{\cellcolor{gray!25}\textbf{Unsupervised Learning}} \\
-\hline
-\hline
-8 & 03/21 & k-Means \& Hierarchical Clustering &  DCC: Unsupervised Learning in R; DCC: Hierarchical Clustering \\
-\hline
-9 & 03/28 & Feature Engineering II \& Principle Component Analysis & DCC: Dimensionality Reduction with PCA; DCC: Putting it all Together with a Case Study  \\
-\hline
-10 & 04/04 & Deep Learning I & DCC: Introducing TensorFlow in R; DCC: Linear Regression using Two TensorFlow APIs;  \textbf{Second group model due}\\
-\hline
-11 & 04/11 & Deep Learning II  &  DCC: Deep Learning in TensorFlow: Creating a Deep Neural Network; DCC: Deep Learning in TensorFlow: Increasing Model Accuracy \\
-\hline
-12 & 04/18 & Boosting and Ensemble Methods  & Read \href{https://xgboost.readthedocs.io/en/latest/R-package/xgboostPresentation.html}{this Vignette} \& \href{https://cran.r-project.org/web/packages/caretEnsemble/vignettes/caretEnsemble-intro.html}{this Vignette}  \\
-\hline
-13 & 04/25 & Visualizing and Reporting your Models & Read \href{https://www.jwilber.me/nest/}{this Tutorial} \\
-\hline
-14 & 05/02 & Final Exam \& Team Presentations & \textbf{Final group model due} \\
-\hline
-\end{longtable}}
+\hypertarget{course-materials}{%
+\section{Course Materials}\label{course-materials}}
 
-\newpage
-\def\arraystretch{1}%  1 is the default, change whatever you need
-%\vspace*{5mm}
-\textbf {\large Summary:} \\\\
-\hspace*{10mm}
-\begin{tabular}{ l | r } 
-\textbf{Assignment} & \textbf{Percentage} \\
-\hline
-Datacamp Assignments & 25\% \\
-Midterm Exam & 25\% \\
-Model Performance (x3) & 30\% \\
-Final Exam &  10\% \\
-Group Presentations &  10\% \\
-\hline
-\textbf{Total} & 100\% \\
-\end{tabular} \\\\
+\begin{itemize}
+\tightlist
+\item
+  Base R, \href{https://cran.r-project.org/}{Install from here}
+\item
+  Latest Version of RStudio,
+  \href{https://www.rstudio.com/products/rstudio/download}{Install from
+  here}
+\item
+  Various free resources (links are in the schedule on the syllabus)
+\item
+  Willamette RStudio Server (tentative):
+  \href{https://rstudio-ds.willamette.edu/auth-sign-in}{Click here}
+\end{itemize}
 
-\textbf {\large Grade Distribution:} \\\\
-\hspace*{10mm}
-\begin{tabular}{ l l }
-\textgreater= 95.00 & A \\
-90.00 - 94.99 & A-  \\
-85.00 - 89.99 & B+   \\
-80.00 - 84.99 & B  \\
-75.00 - 79.99 & B-  \\
-60.00 - 74.99 & C  \\
-\textless= 60.00 & F \\
-\end{tabular} \\\\
+\hypertarget{graded-items}{%
+\section{Graded Items}\label{graded-items}}
 
-\textbf {\large Assignments:}
+\begin{itemize}
+\tightlist
+\item
+  Homework Assignments: \textbf{25\%}
+\item
+  Midterm Exam: \textbf{25\%}
+\item
+  Model Performance (x3): \textbf{30\%}
+\item
+  Final Exam: \textbf{10\%}
+\item
+  Group Presentations: \textbf{10\%}
+\end{itemize}
+
+\hypertarget{grade-distribution}{%
+\section{Grade Distribution}\label{grade-distribution}}
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule
+Percentage & Grade\tabularnewline
+\midrule
+\endhead
+\textgreater{} 95.00 & A\tabularnewline
+90.00 - 94.99 & A-\tabularnewline
+85.00 - 89.99 & B+\tabularnewline
+80.00 - 84.99 & B\tabularnewline
+75.00 - 79.99 & B-\tabularnewline
+60.00 - 74.99 & C\tabularnewline
+\textless{} 60.00 & F\tabularnewline
+\bottomrule
+\end{longtable}
+
+\hypertarget{assignments}{%
+\section{Assignments}\label{assignments}}
+
 \begin{itemize}
 
-			
-	\item \textbf{Homework Assignments (25\%):} Homework assignments consist of completing the assigned chapters within the DataCamp Classroom and doing the assigned reading. Simply completing the assignments on time will give you full credit.
-	
-	\item \textbf{Exams (35\%):} We will have one midterm exam worth 25\% of your grade. This exam will involve writing code to complete various supervised machine learning tasks. You can expect to be given a dataset and a series of questions to answer using the skills developed during the course. You will have three hours to complete this exam. Your final exam will be much shorter and largely conceptual in nature. You will have 90 minutes to complete the final. Exams are open everything (book, notes, internet), EXCEPT communication with others.
+            
+    \item \textbf{Homework Assignments (25\%):} You will be assigned 6 individual homework assignments over the course of the semester. These will typically involve writing some code and "knitting" a file to pdf or html in order to turn it in. Your lowest score will be dropped.
+    
+    \item \textbf{Exams (35\%):} We will have one midterm exam worth 25\% of your grade. This exam will involve writing code to complete various machine learning tasks. You can expect to be given a dataset and a series of questions to answer using the skills developed during the course. You will have three hours to complete this exam. Your final exam will be much shorter and largely conceptual in nature. You will have 90 minutes to complete the final. Exams are open everything (book, notes, internet), EXCEPT communication with others.
 
-	\item \textbf{Classification Models and Presentation (40\%):} Over the course of the semester you will be working in a group tasked with creating a model that classifies wine. Early in the semester I will provide a training and test set upon which to measure your model's performance. Your group will have three opportunities to build and improve their model. At each of these opportunities, the relative performance of your model determines your grade---the top group earns 20 points, 19 for second place and 18 points for third place. During our last class you will present your model. Details and expectations will be clarified in class.
+    \item \textbf{Machine Learning Models and Presentation (40\%):} Over the course of the semester you will be working in a group tasked with creating several models that classify and/or predict some feature of our wine dataset. For each modeling assignment, I will provide the training and test data used to develop and measure your model's performance. Your group will have three opportunities to build a machine learning model. At each of these opportunities, the relative performance of your model determines your grade---the top group earns 20 points, 19 for second place 18 points for third place, 17 points for fourth, and 16 points for 5th. During our last class you will present your model results as though you are speaking to the managers of a large winery. Details and expectations will be clarified in class.
 \end{itemize}
 
 \newpage
-\textbf {\large Course Policies:}
+
+\hypertarget{course-policies}{%
+\section{Course Policies}\label{course-policies}}
+
+Detailed policies for this course are below. Basically, don't cheat and
+try to learn stuff.
+
 \begin{itemize}
-			\item Name tents must be used for the first month of classes---I am a chronically absent-minded professor, and pretty bad with names. I promise an attempt to memorize everyone's moniker, but name tents guarantee that my deficiency does not lead to continuous embarrassment. 
-			\item Collaboration is encouraged both during and outside of the classroom. Students may work together to prepare for exams; however, each student will be on their own when taking the exams in class. 
-			\item No late assignments will be accepted under any circumstance except in rare cases of personal or family emergency.
-			\item Students with disabilities who require accommodation should notify me of the nature of accommodation you require in the first week of class.  Additional support is available from the Willamette University Accessible Education Services Office (\href{www.willamette.edu/dept/disability}{www.willamette.edu/dept/disability}), telephone 503-370-6471.
-			\item Students are responsible for all missed work, regardless of the reason for absence. It is also the absentee's responsibility to get all missing notes or materials. 
-			
-		\item Every student is expected at all times to abide by the Willamette University Atkinson Graduate School of Management Honor Code (\href{http://www.willamette.edu/mba/about/honorcode/index.html}{http://www.willamette.edu/mba/about/honorcode}).
-		\item You must also abide by the Application to Academic Honesty as detailed in the current student handbook (\href{http://www.willamette.edu/mba/students/student-handbook/}{http://www.willamette.edu/mba/students/student-handbook}).
-		\end{itemize}
+\tightlist
+\item
+  Video must be turned on in the Zoom call and names displayed.
+\item
+  No private chat
+\item
+  No late assignments except in \textbf{very rare} cases of personal or
+  family emergency.
+\item
+  Students with disabilities who require accommodation should notify me
+  of the nature of accommodation you require in the first week of class.
+  Additional support is available from the Willamette University
+  \href{www.willamette.edu/dept/disability}{Accessible Education
+  Services Office}, telephone 503-370-6471.
+\item
+  Students are responsible for all missed work, regardless of the reason
+  for absence. It is also the absentee's responsibility to get all
+  missing notes or materials.
+\item
+  Every student is expected at all times to abide by the Willamette
+  University
+  \href{http://www.willamette.edu/mba/about/honorcode}{Atkinson Graduate
+  School of Management Honor Code}.
+
+  \item
+
+  You must also abide by the Application to Academic Honesty as detailed
+  in the
+  \href{http://www.willamette.edu/mba/students/student-handbook}{current
+  student handbook}.
+\end{itemize}
+
+\newpage
+
+\hypertarget{course-schedule}{%
+\section{Course Schedule}\label{course-schedule}}
+
+\hypertarget{week-01-0111-machine-learning-overview}{%
+\subsection{Week 01, 01/11: Machine Learning
+Overview}\label{week-01-0111-machine-learning-overview}}
+
+\begin{itemize}
+\tightlist
+\item
+  Read the syllabus
+\item
+  Read Chapter 1 of
+  \href{https://srdas.github.io/MLBook/DataScience.html}{this book}
+\item
+  Dust off your tidyverse skills
+\end{itemize}
+
+\hypertarget{week-02-0118}{%
+\subsection{\texorpdfstring{Week 02, 01/18:
+\textcolor{Plum}{No Class: MLK}}{Week 02, 01/18: }}\label{week-02-0118}}
+
+\hypertarget{week-03-0125-feature-engineering-i-variable-selection}{%
+\subsection{Week 03, 01/25: Feature Engineering I \& Variable
+Selection}\label{week-03-0125-feature-engineering-i-variable-selection}}
+
+\begin{itemize}
+\tightlist
+\item
+  Read the Preface and Ch. 1 of \href{http://www.feat.engineering/}{this
+  book}
+\item
+  \emph{\textcolor{Bittersweet}{Homework 1 due}}
+\end{itemize}
+
+\hypertarget{section}{%
+\subsection{\texorpdfstring{\emph{\textcolor{OliveGreen}{---Supervised Learning---}}}{}}\label{section}}
+
+\hypertarget{week-04-0201-k-nearest-neighbors}{%
+\subsection{Week 04, 02/01: K-Nearest
+Neighbors}\label{week-04-0201-k-nearest-neighbors}}
+
+\begin{itemize}
+\tightlist
+\item
+  \emph{\textcolor{Bittersweet}{Homework 2 due}}
+\end{itemize}
+
+\hypertarget{week-05-0208-naive-bayes}{%
+\subsection{Week 05, 02/08: Naive
+Bayes}\label{week-05-0208-naive-bayes}}
+
+\begin{itemize}
+\tightlist
+\item
+  \emph{\textcolor{Bittersweet}{Homework 3 due}}
+\end{itemize}
+
+\hypertarget{week-06-0215-logistic-regression}{%
+\subsection{Week 06, 02/15: Logistic
+Regression}\label{week-06-0215-logistic-regression}}
+
+\begin{itemize}
+\tightlist
+\item
+  \emph{\textcolor{Bittersweet}{Homework 4 due}}
+\end{itemize}
+
+\hypertarget{week-07-0222-decision-trees-i}{%
+\subsection{Week 07, 02/22: Decision Trees
+I}\label{week-07-0222-decision-trees-i}}
+
+\begin{itemize}
+\tightlist
+\item
+  \emph{\textcolor{Bittersweet}{Homework 5 due}}
+\end{itemize}
+
+\hypertarget{week-08-0301-decision-trees-ii}{%
+\subsection{Week 08, 03/01: Decision Trees
+II}\label{week-08-0301-decision-trees-ii}}
+
+\hypertarget{week-09-0308-review}{%
+\subsection{Week 09, 03/08: Review}\label{week-09-0308-review}}
+
+\begin{itemize}
+\tightlist
+\item
+  \emph{\textcolor{Bittersweet}{First group model due}}
+\end{itemize}
+
+\hypertarget{week-10-0315-mid-term-exam}{%
+\subsection{Week 10, 03/15: Mid-term
+Exam}\label{week-10-0315-mid-term-exam}}
+
+\hypertarget{week-11-0322}{%
+\subsection{\texorpdfstring{Week 11, 03/22:
+\textcolor{Plum}{No Class: Spring Break}}{Week 11, 03/22: }}\label{week-11-0322}}
+
+\hypertarget{section-1}{%
+\subsection{\texorpdfstring{\emph{\textcolor{OliveGreen}{---Unsupervised Learning---}}}{}}\label{section-1}}
+
+\hypertarget{week-12-0329-feature-engineering-ii-dimensionality-reduction}{%
+\subsection{Week 12, 03/29: Feature Engineering II \& Dimensionality
+Reduction}\label{week-12-0329-feature-engineering-ii-dimensionality-reduction}}
+
+\hypertarget{week-13-0405-clustering}{%
+\subsection{Week 13, 04/05: Clustering}\label{week-13-0405-clustering}}
+
+\begin{itemize}
+\tightlist
+\item
+  \emph{\textcolor{Bittersweet}{Second group model due}}
+\end{itemize}
+
+\hypertarget{week-14-0412-boosting-and-ensemble-methods}{%
+\subsection{Week 14, 04/12: Boosting and Ensemble
+Methods}\label{week-14-0412-boosting-and-ensemble-methods}}
+
+\hypertarget{week-15-0419-deep-learning}{%
+\subsection{Week 15, 04/19: Deep
+Learning}\label{week-15-0419-deep-learning}}
+
+\begin{itemize}
+\tightlist
+\item
+  \emph{\textcolor{Bittersweet}{Final group model due}}
+\end{itemize}
+
+\hypertarget{week-16-0426-final-exam-and-team-presentations}{%
+\subsection{Week 16, 04/26: Final Exam and Team
+Presentations}\label{week-16-0426-final-exam-and-team-presentations}}
+
+
 
 
 \end{document}
 
-
-
+\makeatletter
+\def\@maketitle{%
+  \newpage
+%  \null
+%  \vskip 2em%
+%  \begin{center}%
+  \let \footnote \thanks
+    {\fontsize{18}{20}\selectfont\raggedright  \setlength{\parindent}{0pt} \@title \par}%
+}
+%\fi
+\makeatother

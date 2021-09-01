@@ -1,38 +1,29 @@
 ---
 title: "Naive Bayes"
 author: "Jameson Watts, Ph.D."
-date: "02/01/2020"
+date: "02/08/2021"
 output: 
-  html_document:
-    toc: true
-    toc_depth: 2
-    toc_float: true
-    toc_smooth: true
-    number_sections: true
+  pdf_document:
     df_print: kable
     fig_width: 11
+    fig_height: 8
 ---
-<style>
-strong{
-  color: #018080;
-}
-table.rmdtable th {
-    background: #791716;
-}
-
-</style>
 
 ## Agenda
 
-1. The Naive Bayes algorithm
-2. Tidy text and bag of words
-3. The new tidymodels package
+1. Review of Homework 3
+2. RStudio Server and Parallel Processing
+3. The Naive Bayes algorithm
+4. Dinner break
+5. Tidy text and bag of words
+6. Group work
+7. Vocabulary
 
 # The Naive Bayes Algorithm
 
 ## Algorithm
 
-$p(C|x) = \frac{p(C \space \& \space x)}{p(x)}$
+$P(c|x) = \frac{P(x|c)P(c)}{P(x)} = \frac{P(c \space \& \space x)}{P(x)}$
 
 ## Setup
 
@@ -44,7 +35,8 @@ library(naivebayes)
 library(fastDummies)
 source('theme.R')
 
-wine = as.data.frame(read_rds("../resources/pinot-project.rds")) 
+wine = read_rds("../resources/pinot.rds") %>% 
+  select(-taster_name)
 ```
 
 ## Some basic features
@@ -82,20 +74,18 @@ ny_and_cherry/cherry
 ## A basic model
 
 ```{r}
-set.seed(5004)
+set.seed(504)
 wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
 train <- wino[ wine_index, ]
 test <- wino[-wine_index, ]
 
-grid <- expand.grid(usekernel = c(T, F), laplace = c(T,F), adjust = T)
-grid
+control <- trainControl(method = "cv")
 
 fit <- train(province ~ .,
              data = train, 
              method = "naive_bayes",
-             tuneGrid = grid,
              metric = "Kappa",
-             trControl = trainControl(method = "cv"))
+             trControl = control)
 fit
 ```
 
@@ -132,15 +122,15 @@ wino <- wino %>%
 ## Binned model
 
 ```{r}
+set.seed(504)
 train <- wino[ wine_index, ]
 test <- wino[-wine_index, ]
 
 fit <- train(province ~ .,
              data = train, 
              method = "naive_bayes",
-             tuneGrid = grid,
              metric = "Kappa",
-             trControl = trainControl(method = "cv"))
+             trControl = control)
 fit
 ```
 
@@ -153,6 +143,9 @@ confusionMatrix(predict(fit, test),factor(test$province))
 
 ##### Naive bayes is best when you want to consider a bunch of predictors simultaneously to get a 'holistic' view.
 
+# Dinner (and virtual high fives)
+
+![](images/comic4.png)
 
 # Tidytext and frequency distributions
 
@@ -161,7 +154,6 @@ confusionMatrix(predict(fit, test),factor(test$province))
 ```{r}
 library(tidytext)
 data(stop_words)
-
 head(stop_words, 25)$word
 ```
 
@@ -210,7 +202,7 @@ head(wino, 10) %>%
 ## A new model
 
 ```{r}
-set.seed(5004)
+set.seed(504)
 wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
 train <- wino[ wine_index, ]
 test <- wino[-wine_index, ]
@@ -218,7 +210,7 @@ test <- wino[-wine_index, ]
 fit <- train(province ~ .,
              data = train, 
              method = "naive_bayes",
-             tuneGrid = expand.grid(usekernel = T, laplace = T, adjust = T),
+             tuneGrid = expand.grid(usekernel = c(T,F), laplace = T, adjust = T),
              metric = "Kappa",
              trControl = trainControl(method = "cv"))
 fit
@@ -234,12 +226,11 @@ confusionMatrix(predict(fit, test),factor(test$province))
 ## Maybe we can find words associated with our sparse provinces?
 
 ```{r}
-
 df %>% 
   left_join(select(wine, ID, province), by = "ID") %>% 
   count(province, word) %>%
   group_by(province) %>% 
-  top_n(10,n) %>% 
+  top_n(5,n) %>% 
   arrange(province, desc(n))
 ```
 
@@ -248,44 +239,74 @@ df %>%
 Use the top words by province to...
 
 1. Engineer more features that capture the essence of Casablanca, Marlborough and New York
-2. Use them to run naive bayes models that achieve Kappa > 0.4
+2. Look for difference between California and Oregon
+3. Use what you find to run naive bayes models that achieve a Kappa that approaches 0.5
 
-# Intro to Tidymodels
 
-## Splitting the data
+# Vocabulary
 
-```{r}
-library(tidymodels)
-library(discrim)
-wine = as.data.frame(read_rds("../resources/pinot-project.rds")) %>% 
-  select(-description)
-wine_split <- initial_split(wine)
-train <- training(wine_split)
-test <- testing(wine_split)
-```
+- Naive Bayes
+- Correlation
+- Residual
+- Kappa
+- Parameter Tuning
+- Conditional Probability
 
-## Model specification
+
+# Bonus Code
 
 ```{r}
-lm_spec <- linear_reg() %>%
-  set_engine(engine = "lm")
+library(scales)
+wtxt <- wine %>% 
+  unnest_tokens(word, description) %>% 
+  anti_join(stop_words) %>% 
+  filter(str_detect(string = word, pattern = "[a-z+]")) %>%  # get rid weird non alphas
+  filter(str_length(word)>3) %>%  # get rid of strings shorter than 3 characters
+  group_by(word) %>% 
+  mutate(total=n()) %>% 
+  ungroup()
 
-lm_spec
+wtxt %>% 
+    filter(province=="Oregon" | province=="California") %>% 
+    filter(!(word %in% c("wine","pinot","drink","noir","vineyard","palate","notes","flavors","bottling"))) %>% 
+    filter(total > 400) %>% 
+    group_by(province, word) %>%
+    count() %>% 
+    group_by(province) %>% 
+    mutate(proportion = n / sum(n)) %>% 
+    pivot_wider(id_cols = word, names_from = province, values_from = proportion) %>% 
+    ggplot(aes(x = Oregon, y = California, color = abs(Oregon - California))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format()) +
+    scale_y_log10(labels = percent_format()) +
+    scale_color_gradient(limits = c(0, 0.001), low = "darkslategray4", high = "gray75") +
+    theme(legend.position="none") +
+    labs(x = "Oregon", y = "California", title = "Words describing Pinot Noir from California and Oregon")
 ```
 
-## Fit the Model
 
 ```{r}
-lm_fit <- lm_spec %>%
-  fit(price ~ .,
-    data = train
-  )
+dtxt <- wtxt %>% 
+  filter(province=="Oregon" | province=="California") %>% 
+  filter(!(word %in% c("wine","pinot","drink","noir","vineyard","palate","notes","flavors","bottling","bottle","finish"))) %>% 
+  filter(total > 400) %>% 
+  group_by(province, word) %>%
+  count() %>% 
+  group_by(province) %>% 
+  mutate(proportion = n / sum(n)) %>% 
+  pivot_wider(id_cols = word, names_from = province, values_from = proportion) %>% 
+  mutate(diff=Oregon-California) 
 
-lm_fit
+dtxt %>%
+  top_n(25, diff) %>%
+  mutate(word = reorder(word, diff)) %>%
+  ggplot(aes(word, diff)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip()
 ```
 
-## Some references
 
-https://rviews.rstudio.com/2019/06/19/a-gentle-intro-to-tidymodels/
 
-https://juliasilge.com/blog/intro-tidymodels/

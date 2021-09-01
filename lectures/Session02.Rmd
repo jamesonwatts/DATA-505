@@ -1,66 +1,47 @@
 ---
-title: "Feature Engineering I"
+title: "Feature Engineering I & Variable Selection"
 author: "Jameson Watts, Ph.D."
-date: "1/23/2020"
+# date: "1/23/2020"
 output: 
-  ioslides_presentation:
-    smaller: yes
-    widescreen: yes
+  powerpoint_presentation:
     df_print: kable
+    slide_level: 2
+    reference_doc: Template.potx
 ---
-<style>
-strong{
-  color: #018080;
-}
-table.rmdtable th {
-    background: #791716;
-}
-
-</style>
 
 ## Agenda
 
-1. Data ethics review
-2. What is feature engineering?
-3. Overview of the 'caret' package
-4. Parameter selection
-
-# Data ethics review
-
-## Problems
-- Demographic data
-- Profit optimizing
-- Autonomous cars
-- Recommendation engines
-- Criminal sentencing
-- Choice of classification model
-- Killer robots
-
-Reasonable people will disagree over subtle matters of right and wrong... thus, the important part of data ethics is committing to *consider* the ethical consequences of your choices. 
-
-The difference between "regular" ethics and data ethics is that algorithms scale really easily. Thus, seemingly small decisions can have wide-ranging impact.
-
-# What is feature engineering?
+1. Review of Homework 1
+2. Feature Engineering I
+3. Dinner Break
+4. The Caret framework
+5. Vocabulary
 
 ## Setup
 
 ```{r setup, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 library(tidyverse)
-library(caret)
-source('theme.R')
 wine = read_rds("../resources/wine.rds")
 ```
 
-## Exploratory visualizations
+# Basic feature engineering
 
-- Finding interactions
-- Looking at correlations
-- Assessing distribution of data
+## Exercise (20m)
 
-## Example
+1. Gather in groups
+2. Identify 3 "interesting" features of the wine dataset
+3. **Bonus** Identify the wine variety (or varieties) that Roger Voss seems to dislike compared to the other critics
 
-```{r echo=F}
+## Categorical vs. Continuous Variables
+
+- What is a categorical variable?
+- What is a continuous variable?
+- Why do we need to "look" at the data before modeling it?
+
+## Categorical Example 1
+
+```{r echo=T}
 wine %>% 
   mutate(roger=taster_name=="Roger Voss") %>% 
   mutate(pinot_gris=variety=="Pinot Gris") %>% 
@@ -73,9 +54,9 @@ wine %>%
   geom_point()
 ```
 
-## Example
+## Categorical Example 2
 
-```{r echo=F}
+```{r echo=T}
 wine %>% 
   filter(province=="Oregon") %>% 
   group_by(year) %>% 
@@ -85,63 +66,52 @@ wine %>%
   labs(title = "Oregon wine over the years")
 ```
 
-
-## Encoding categorical predictors: few dummies
+## Encoding categorical features: few dummies
 
 ```{r}
 library(fastDummies)
 wine %>% 
   select(taster_name) %>% 
   dummy_cols() %>% 
+  select(1:4) %>% 
   head()
 ```
 
-## Encoding categorical predictors: many dummies
+## Encoding categorical features: many dummies
 
 ```{r}
 wine %>% 
   select(variety) %>%
-  mutate(variety=fct_lump(variety,5)) %>%
+  mutate(variety=fct_lump(variety,4)) %>%
   dummy_cols() %>% 
   head()
 ```
 
-## Other types of engineered factors...
+## Other types of engineered categorical features...
 
 - Words or phrases in text
 - A given time period
 - An arbitrary numerical cut-off
+- Demographic variables
 - Etc.
 
+## What about numerical features?
 
-## Engineering numeric predictors: Box-Cox
-
-Box-Cox transformations use MLE to estimate $\lambda$
-
-$x^{*} = \left\{ \begin{array}{l l} \frac{x^{\lambda}-1}{\lambda\: \tilde{x}^{\lambda-1}}, & \lambda \neq 0 \\ \tilde{x} \: \log x, & \lambda = 0 \\ \end{array} \right.$
-
-- when $\lambda=1$, there is no transformation
-- when $\lambda=0$, it is log transformed
-- when $\lambda=0.5$, it is square root
-- when $\lambda=-1$, it is an inverse
-
-## Calculating Box-Cox
-
-```{r}
-x <- as.data.frame(select(wine,price,points))
-x_proc <- preProcess(x, method = "BoxCox")
-x_proc
-x_new <- predict(x_proc, x) 
-head(x_new)
-```
-## Histogram after Box-Cox
-
-```{r}
-ggplot(x_new,aes(price))+geom_histogram()
+```{r echo=F}
+wine %>%
+  ggplot(aes(price))+
+    geom_histogram()
 ```
 
+## Take the natural log
 
-## Engineering numeric predictors: Standardizing
+```{r echo=F}
+wine %>%
+  ggplot(aes(log(price)))+
+    geom_histogram()
+```
+
+## Engineering numeric features: Standardizing
 
 - mean-centering $x-\bar{x}$
 - scaling: $x/std(x)$
@@ -156,14 +126,18 @@ And there are [many other transformations](http://www.feat.engineering/numeric-o
 
 - start with domain knowledge
 - use visualizations
-- 3-way interactions exist, but are rare
-- brute force is a last resort
+- 3-way interactions exist, but are rare and sometimes hard to explain
+
+## Dinner (and virtual high fives)
+
+![](images/comic2.gif)
+
 
 # The 'caret' package
 
 ## Philosophy
 
-![](images/resampling.svg){width=75%}
+![](images/resampling.png)
 
 
 ## Types of resampling
@@ -175,6 +149,7 @@ And there are [many other transformations](http://www.feat.engineering/numeric-o
 ## Typical setup
 
 ```{r}
+library(caret)
 wino <- wine %>% ## look ma, engineered features!
   mutate(fr=(country=="France")) %>%
   mutate(cab=str_detect(variety,"Cabernet")) %>% 
@@ -186,11 +161,11 @@ wine_index <- createDataPartition(wino$lprice, p = 0.8, list = FALSE)
 wino_tr <- wino[ wine_index, ]
 wino_te <- wino[-wine_index, ]
 
-set.seed(5004)
-lm_fit <- train(lprice ~ .,
+control <- trainControl(method="repeatedcv", number=5, repeats=3)
+m1 <- train(lprice ~ .,
                 data = wino_tr, 
                 method = "lm",
-                trControl = trainControl(number = 1))
+                trControl = control)
 ```
 
 Follow [this link](https://topepo.github.io/caret) for the full documentation on caret.
@@ -198,19 +173,25 @@ Follow [this link](https://topepo.github.io/caret) for the full documentation on
 ## Train vs. test
 
 ```{r}
-lm_fit
-wine_pred <- predict(lm_fit, wino_te)
+m1
+```
+
+## Train vs. test
+
+```{r}
+wine_pred <- predict(m1, wino_te)
 postResample(pred=wine_pred, obs = wino_te$lprice)
 ```
 
 
 ## Exercise (30-40 minutes)
 
-1. Gather in your modeling teams
-2. Create 5 new features (in addition to points)
+1. Gather in groups
+2. Create 5-10 new features (in addition to points)
 3. Create training and test data
-4. Use your new predictors to train a linear regression model
+4. Use your new predictors to train a linear regression model for log(price)
 5. Report RMSE on test set
+6. Keep tweaking/engineering new features to lower the RMSE
 
 
 # Parameter selection
@@ -221,84 +202,104 @@ Harrell (2015) provides a comprehensive indictment of the method that can be enc
 
 > **“… if this procedure had just been proposed as a statistical method, it would most likely be rejected because it violates every principle of statistical estimation and hypothesis testing.”**
 
+&nbsp;
 Reference: Harrell, F. 2015. Regression Modeling Strategies. Springer.
 
-## Basic model with 11 parameters
+## Engineer 9 features
 
 ```{r}
 wino <- wine %>% 
-  mutate(country=fct_lump(country,5)) %>%
-  mutate(variety=fct_lump(variety,5)) %>% 
+  mutate(country=fct_lump(country,4)) %>%
+  mutate(variety=fct_lump(variety,4)) %>% 
   mutate(lprice=log(price)) %>%
   select(lprice, points, country, variety) %>% 
   drop_na(.)
 
-library(fastDummies)
 wino <- dummy_cols(wino, remove_selected_columns = T) %>% 
   select(-country_Other, -variety_Other) %>% 
   rename_all(funs(tolower(.))) %>% 
   rename_all(funs(str_replace_all(., "-", "_"))) %>% 
   rename_all(funs(str_replace_all(., " ", "_")))
 
+head(wino) %>% 
+  select(1:7)
+```
+
+## Basic Model
+
+```{r}
 wine_index <- createDataPartition(wino$lprice, p = 0.8, list = FALSE)
 wino_tr <- wino[ wine_index, ]
 wino_te <- wino[-wine_index, ]
 
-set.seed(5004)
-lm_fit <- train(lprice ~ .,
+m2 <- train(lprice ~ .,
                 data = wino_tr, 
                 method = "lm",
-                trControl = trainControl(number = 1))
+                trControl = control)
 ```
 
-## Results
+## Results (train)
+
 ```{r}
-lm_fit
-wine_pred <- predict(lm_fit, wino_te)
-postResample(pred=wine_pred, obs = wino_te$lprice)
-
+m2
 ```
+
+## Results (test)
+
+```{r}
+wine_pred <- predict(m2, wino_te)
+postResample(pred=wine_pred, obs = wino_te$lprice)
+```
+
+## Variable Importance (depends on model used)
+
+```{r message=F}
+# estimate variable importance
+importance <- varImp(m2, scale=TRUE)
+# plot importance
+plot(importance)
+```
+
 
 ## Recursive feature elimination
 
-![](images/RFE.png){width=75%}
+![](images/RFE.png)
 
 ## Using recursive feature elimination in caret
 
-```{r}
+```{r eval=FALSE}
 
 x <- select(wino_tr,-lprice)
 y <- wino_tr$lprice
-subsets <- c(1:11)
-lmProfile <- rfe(x, y,
-                 sizes = subsets,
-                 rfeControl = rfeControl(functions = lmFuncs, returnResamp = "all"))
+
+control <- rfeControl(functions=rfFuncs, method="cv", number=2)
+# run the RFE algorithm
+results <- rfe(x, y, sizes=c(1:9), rfeControl=control)
+# summarize the results
+print(results)
+# list the chosen features
+predictors(results)
+# plot the results
+plot(results, type=c("g", "o"))
+
 ```
 
-## Results
+# Vocabulary
 
-```{r}
-lmProfile
-```
+## Key Terms
 
-## Coefficients
+- Feature Engineering
+- Categorical Feature
+- Continuous Feature
+- Dummy
+- Interaction
+- Caret
+- Model
+- Resampling
+- Training Data vs. Test Data
+- Variable Importance
+- 
 
-```{r}
-lmProfile$fit
-```
 
-## Graphing performance gains
 
-```{r}
-ggplot(lmProfile)
-```
-
-## Visualizing the resampling 
-
-```{r}
-lmProfile[["resample"]] %>% 
-  ggplot(aes(Variables, RMSE))+
-  geom_point()+
-  geom_smooth()
-```
 

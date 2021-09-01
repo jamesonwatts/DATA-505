@@ -1,63 +1,252 @@
 ---
 title: "K Nearest Neighbors"
 author: "Jameson Watts, Ph.D."
-date: "02/01/2020"
+date: "02/01/2021"
 output: 
-  html_document:
-    toc: true
-    toc_depth: 2
-    toc_float: true
-    toc_smooth: true
-    number_sections: true
+  pdf_document:
     df_print: kable
     fig_width: 11
+    fig_height: 8
 ---
-<style>
-strong{
-  color: #018080;
-}
-table.rmdtable th {
-    background: #791716;
-}
-
-</style>
 
 ## Agenda
 
-1. The KNN algorithm
-2. Preprocessing
-3. Running the model
-4. Tuning and cross-validation
-5. ROC and feature selection
-
-# The KNN Algorithm
-## Algorithm
-
-1. Load the data
-2. Initialize K to your chosen number of neighbors
-3. For each example in the data
-  1. Calculate the distance between the query example and the current example from the data.
-  2. Add the distance and the index of the example to an ordered collection
-4. Sort the ordered collection of distances and indices from smallest to largest (in ascending order) by the distances
-5. Pick the first K entries from the sorted collection
-6. Get the labels of the selected K entries
-7. If regression, return the mean of the K labels
-8. If classification, return the mode of the K labels
+1. Review of Homework 2
+2. A human understanding of regression
+3. Dinner break
+5. Preprocessing and BoxCox
+6. The KNN algorithm and the Confusion Matrix
 
 ## Setup
 
 ```{r setup, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 library(tidyverse)
+library(moderndive)
+source('theme.R')
+wine <- read_rds("../resources/wine.rds") %>% 
+  mutate(lprice = log(price))
+```
+
+
+# Reporting Impact from Regressions
+
+## Correlation
+
+[*Credit:* Modern Dive](https://moderndive.com/5-regression.html)
+
+[http://guessthecorrelation.com/](http://guessthecorrelation.com/) ...my high score is 122
+
+![](./images/correlation.png)
+
+## Calculating correlation
+
+```{r}
+wine %>% 
+  summarise(cor_p=cor(price,points),cor_lp=cor(lprice,points))
+```
+
+## Exercise
+
+1. Calculate the correlation between log(price) and points 
+2. by variety
+3. for Oregon Chardonnay, Pinot Noir and Pinot Gris
+4. in the same tibble
+
+## Solution
+
+```{r}
+wine %>% 
+  filter(province=="Oregon") %>% 
+  filter(variety %in% c("Chardonnay","Pinot Noir","Pinot Gris")) %>% 
+  group_by(variety) %>% 
+  summarise(correlation=cor(lprice,points))
+```
+
+## Visualizing these different correlations
+
+```{r}
+wine %>% 
+  filter(province=="Oregon") %>% 
+  filter(variety %in% c("Chardonnay","Pinot Noir","Pinot Gris")) %>% 
+  ggplot(aes(points,lprice, color=variety)) +
+    geom_point(alpha=0.3)+
+    facet_wrap(~variety)+
+    geom_smooth(method = lm)
+    
+```
+
+
+## Graphing residuals (bad)
+
+```{r}
+model <- lm(price~points, filter(wine,province=="Oregon"))
+get_regression_points(model) %>% 
+  ggplot(aes(points, residual))+
+    geom_point()
+```
+
+## Graphing residuals (good)
+
+```{r}
+model <- lm(lprice~points, filter(wine,province=="Oregon"))
+get_regression_points(model) %>% 
+  ggplot(aes(points, residual))+
+    geom_point()
+```
+
+
+## Interpreting the coefficients
+
+```{r}
+model <- lm(lprice~points, filter(wine,province=="Oregon"))
+pct = (exp(coef(model)["points"]) - 1) * 100
+```
+
+Since we logged the DV, a 1 point ratings increase = ``r round(pct,2)``\% increase in price on average. 
+
+Note: $$ (e^x-1)*100 $$
+
+## Even moar awesomer with some code fu
+
+```{r}
+for(v in c("Chardonnay", "Pinot Gris","Pinot Noir")){
+  m <- lm(lprice~points, filter(wine,province=="Oregon", variety==v))
+  pct <- round((exp(coef(m)["points"]) - 1) * 100,2)
+  print(str_c("For ",v,", a 1 point ratings increase leads to a ",pct,"% increase in price."))
+}
+```
+
+## Logged feature
+
+```{r}
+model <- lm(price~lpoints, filter(wine,province=="Oregon") %>% mutate(lpoints=log(points)))
+model
+inc = coef(model)["lpoints"]/100
+```
+
+Since we logged the IV (feature), a 1% ratings increase = ``r round(inc,2)`` increase in price on average. 
+
+Note: $$ x/100 $$
+
+## LogLog (also elasticity)
+
+```{r}
+model <- lm(lprice~lpoints, filter(wine,province=="Oregon") %>% mutate(lpoints=log(points)))
+model
+```
+
+...a 1\% increase in ratings equals a ``r round(coef(model)["lpoints"],2)``\% increase in price on average
+
+## Summary
+
+- Only the dependent/response variable is log-transformed. Exponentiate the coefficient, subtract one from this number, and multiply by 100. This gives the percent increase (or decrease) in the response for every one-unit increase in the independent variable. Example: the coefficient is 0.198. (exp(0.198) – 1) * 100 = 21.9. For every one-unit increase in the independent variable, our dependent variable increases by about 22%.
+- Only independent/predictor variable(s) is log-transformed. Divide the coefficient by 100. This tells us that a 1% increase in the independent variable increases (or decreases) the dependent variable by (coefficient/100) units. Example: the coefficient is 0.198. 0.198/100 = 0.00198. For every 1% increase in the independent variable, our dependent variable increases by about 0.002. 
+- Both dependent/response variable and independent/predictor variable(s) are log-transformed. Interpret the coefficient as the percent increase in the dependent variable for every 1% increase in the independent variable. Example: the coefficient is 0.198. For every 1% increase in the independent variable, our dependent variable increases by about 0.20%. 
+
+## Graphing points by variety
+```{r}
+wine %>% 
+  filter(province=="Oregon") %>% 
+  filter(variety %in% c("Chardonnay","Pinot Noir","Pinot Gris")) %>% 
+  ggplot(aes(variety,points))+
+    geom_boxplot()
+```
+
+## Summary
+```{r}
+(tmp <- wine %>% 
+  filter(province=="Oregon") %>% 
+  filter(variety %in% c("Chardonnay","Pinot Noir","Pinot Gris")) %>% 
+  group_by(variety) %>% 
+  summarise(mean=mean(points)))
+```
+
+Note: 
+
+1. The difference between Pinot Gris and Chardonnay is `r tmp[["mean"]][2]-tmp[["mean"]][1]`
+2. The difference between Pinot Noir and Chardonnay is `r tmp[["mean"]][3]-tmp[["mean"]][1]`
+
+## Regression
+```{r}
+model <- lm(points~variety, 
+            filter(wine,province=="Oregon",variety %in% c("Chardonnay","Pinot Noir","Pinot Gris")))
+get_regression_table(model)
+```
+
+What is the equation for this regression?
+
+
+## Assumptions of linear regression
+
+1. **L**inearity of relationship between variables
+2. **I**ndependence of the residuals
+3. **N**ormality of the residuals
+4. **E**quality of variance of the residuals
+
+## Linearity of relationship
+[*Credit:* Modern Dive](https://moderndive.com/5-regression.html)
+
+![](./images/non-linear.png)
+
+What would the residuals look like?
+
+## Independence
+
+Given our original model of $log(price)=m*Points+b$... 
+
+### ...are there any problems with independence?
+
+## Normality
+```{r}
+model <- lm(lprice~points, filter(wine,province=="Oregon"))
+get_regression_points(model) %>% 
+  ggplot(aes(residual))+
+    geom_histogram(color="white")
+```
+
+## Equality of variance
+
+```{r}
+get_regression_points(model) %>% 
+  ggplot(aes(points, residual))+
+    geom_jitter(alpha=0.2)
+```
+
+## No equality in the variance
+
+[*Credit:* Modern Dive](https://moderndive.com/5-regression.html)
+
+![](./images/unequal-variance.png)
+
+
+# Dinner (and vitural high fives)
+
+![](./images/comic3.png)
+
+# Preprocessing and BoxCox
+
+## Setup
+
+```{r}
 library(caret)
 library(class)
 library(fastDummies)
-source('theme.R')
-set.seed(5004)
-wine = as.data.frame(read_rds("../resources/pinot.rds")) 
+# wine <- as.data.frame(read_rds("../resources/pinot.rds"))
+wine <- read_rds("../resources/pinot.rds")
+
 ```
 
 # Preprocessing
+
+Box-Cox transformations use MLE to estimate $\lambda$
+
+$x^{*} = \frac{x^{\lambda}-1}{\lambda\: \tilde{x}^{\lambda-1}}$
+
+- when $\lambda=1$, there is no transformation
+- when $\lambda=0$, it is log transformed
+- when $\lambda=0.5$, it is square root
+- when $\lambda=-1$, it is an inverse
 
 ## Caret preprocessing is so easy!
 
@@ -65,6 +254,7 @@ wine = as.data.frame(read_rds("../resources/pinot.rds"))
 wine %>% 
   preProcess(method = c("BoxCox","center","scale")) %>% 
   predict(wine) %>% 
+  select(-description) %>% 
   head()
 ```
 
@@ -80,6 +270,43 @@ wino <- wino %>%
 
 head(wino %>% select(starts_with("year")))
 ```
+
+
+# The KNN Algorithm
+
+## Algorithm
+
+1. Load the data
+2. Initialize K to your chosen number of neighbors
+3. For each example in the data
+  1. Calculate the distance between the query example and the current example from the data.
+  2. Add the distance and the index of the example to an ordered collection
+4. Sort the ordered collection of distances and indices from smallest to largest (in ascending order) by the distances
+5. Pick the first K entries from the sorted collection
+6. Get the labels of the selected K entries
+7. If regression, return the mean of the K labels
+8. If classification, return the mode of the K labels
+
+## Let's draw it
+
+
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;
+
 
 ## Engineering some features
 
@@ -98,16 +325,15 @@ wino <- wino %>%
   mutate(earth = str_detect(description,"earth")) %>%
   select(-description)
 
-head(wino)
+head(wino) %>% 
+  select(1:8)
 ```
-
-
-# Basic Model
 
 ## Simple model
 
 ```{r}
-wine_index <- createDataPartition(wino$province, p = 0.75, list = FALSE)
+set.seed(504)
+wine_index <- createDataPartition(wino$province, p = 0.8, list = FALSE)
 train <- wino[ wine_index, ]
 test <- wino[-wine_index, ]
 
@@ -117,13 +343,18 @@ fit <- knn(
   k=5, 
   cl = train$province, 
   prob = T)
+```
 
+## Confusion matrix
+
+```{r}
 confusionMatrix(fit,factor(test$province))
 ```
 
+
 ## Kappa statistic
 
-Compares oberved accuracy against what would be expected by a random classifier. 
+Compares observed accuracy against what would be expected by a random classifier. 
 
 - \< 0.2 (not so good)
 - 0.21 - 0.4 (ok)
@@ -138,7 +369,8 @@ Compares oberved accuracy against what would be expected by a random classifier.
 ```{r}
 wino <- select(wino, -starts_with("taster")) # get rid of the taster variables
 
-wine_index <- createDataPartition(wino$province, p = 0.75, list = FALSE)
+set.seed(504)
+wine_index <- createDataPartition(wino$province, p = 0.8, list = FALSE)
 train <- wino[ wine_index, ]
 test <- wino[-wine_index, ]
 
@@ -148,20 +380,23 @@ fit <- knn(
   k=5, 
   cl = train$province, 
   prob = T)
-
-confusionMatrix(fit,factor(test$province))
 ```
 
-# Tuning, cross-validation and feature selection
+## Confusion matrix
+
+```{r tidy=T, strip.white=T, comment=""}
+confusionMatrix(fit,factor(test$province))
+```
 
 ## Basic model with parameter tuning
 
 ```{r}
+control <- trainControl(method = "boot", number = 1)
 fit <- train(province ~ .,
              data = train, 
              method = "knn",
              tuneLength = 15,
-             trControl = trainControl(number = 1))
+             trControl = control)
 fit
 ```
 
@@ -171,7 +406,9 @@ fit
 confusionMatrix(predict(fit, test),factor(test$province))
 ```
 
-## With parameter tuning, cross validation and Kappa
+```
+
+## With parameter tuning and subsampling
 
 ```{r}
 fit <- train(province ~ .,
@@ -179,7 +416,7 @@ fit <- train(province ~ .,
              method = "knn",
              tuneLength = 15,
              metric = "Kappa",
-             trControl = trainControl(method = "repeatedcv"))
+             trControl = control)
 
 fit
 ```
@@ -197,39 +434,15 @@ ggplot(fit, metric="Kappa")
 * Create some new features and
 * see if you can achieve a Kappa >= 0.5
 
-# Feature Selection and KNN for regression
 
-## Feature Selection
-
-```{r}
-x <- select(train,-province)
-y <- train$province
-
-# feature selection settings
-rfeC <- rfeControl(functions = caretFuncs, method = "cv", number=2, verbose = F, returnResamp="final")
-# cross validation settings
-trC <- trainControl(method = "cv", number=2, verboseIter=F)
-# feature sizes to try
-sizes <- seq(2,ncol(x)-1,2)
-# levels of K to try
-knnG <- expand.grid(.k=seq(20, 30, 5))
-knnR <- rfe(x, y, sizes = sizes, tuneGrid = knnG, rfeControl = rfeC, method="knn", trControl=trC)
-knnR
-```
-
-```{r}
-ggplot(knnR, metric = "Kappa")
-```
-
-
-## KNN for regression
+## Bonus: KNN for regression
 
 ```{r}
 fit <- train(price ~ .,
              data = train, 
              method = "knn",
              tuneLength = 15,
-             trControl = trainControl(number = 1))
+             trControl = control)
 fit
 
 ```

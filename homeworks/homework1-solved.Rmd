@@ -1,0 +1,122 @@
+---
+title: "Homework 1"
+author: "Jameson Watts"
+date: "01/25/2021"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+**Directions:**
+
+Please turn in **both** a knitted HTML file *and* your Rmd file on WISE.
+
+Good luck!
+
+# Setup (5pts)
+
+Change the author of this RMD file to be yourself and modify the below code so that you can successfully load the 'wine.rds' data file from your own computer. In the space provided after the R chunk, explain what this code is doing (line by line).
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+
+wine <- read_rds("../resources/wine.rds") %>%
+  filter(province=="Oregon" | province == "California" | province == "New York") %>% 
+  mutate(cherry=as.integer(str_detect(description,"[Cc]herry"))) %>% 
+  mutate(lprice=log(price)) %>% 
+  select(lprice, points, cherry, province)
+```
+
+**Answer:** 
+
+- set the defaults for output of R code
+- import the tidyverse library
+- read in the wine.rds data set
+  - keep records from Oregon, California and New York
+  - create a new variable called 'cherry' that is 1 if the word 'cherry' exists in the description and 0 otherwise
+  - create a new variable (feature) called 'lprice' that is the natural log of price
+  - keep only the columns lprice, points, cherry, and province
+
+
+# Multiple Regression
+
+## (2pts)
+
+Run a linear regression model with log of price as the dependent variable and 'points' and 'cherry' as features (variables). Report the RMSE.
+
+```{r}
+library(moderndive)
+m1 <- lm(lprice ~ points + cherry, data=wine)
+get_regression_summaries(m1)
+```
+
+
+## (2pts)
+
+Run the same model as above, but add an interaction between 'points' and 'cherry'. 
+
+```{r}
+m1 <- lm(lprice ~ points * cherry, data=wine)
+get_regression_table(m1)
+```
+
+## (3pts)
+
+How should I interpret the coefficient on the interaction variable? Please explain as you would to a non-technical manager.
+
+**Answer:** When a wine is rated higher, it has a higher price; however, this relationship is even stronger for wines with notes of cherry. That is, price rises faster with an increase in points for wines that have the word 'cherry' in their description.
+
+## (Bonus: 1pt)
+
+In which province (Oregon, California, or New York), does the 'cherry' feature in the data affect price most? Show your code and write the answer below.
+
+```{r}
+m1 <- lm(lprice ~ cherry*province, data=wine)
+get_regression_table(m1)
+```
+
+**Answer:** $log(price)=California + cherry + New York + Oregon + cherry*(New York)+cherry*(Oregon)$
+
+When Oregon and New York are zero, then all we have left is California. Thus, the intercept and estimate on 'cherry' are for California. The other estimates show a difference from the baseline (i.e. California). The effect of cherry in Oregon is slightly greater than the baseline and it's slightly lower in New York. Thus the effect of Cherry on price is greatest in Oregon.
+
+```{r message=FALSE}
+wine %>% 
+  group_by(cherry, province) %>% 
+  summarise(lprice = mean(lprice)) %>% 
+  ggplot() +
+    aes(x = cherry, y = lprice, color = province) +
+    geom_line(aes(group = province)) +
+    geom_point()
+```
+
+
+
+# Data Ethics
+
+## (3pts)
+
+Imagine that you are a manager at an E-commerce operation that sells wine online. Your employee has been building a model to distinguish New York wines from those in California and Oregon. After a few days of work, your employee bursts into your office and exclaims, "I've achieved 91% accuracy on my model!" 
+
+Should you be impressed? Why or why not? Use simple descriptive statistics from the data to justify your answer.
+
+```{r}
+wine %>% 
+  count(province)
+```
+
+**Answer:** No. By building a model that never chooses New York, you will be correct 91% of the time. This is because New York only has 9% of the wines in the dataset.
+
+## (3pts)
+
+Why is understanding the vignette in the previous question important if you want to use machine learning in an ethical manner?
+
+**Answer:** Because natural imbalances in data can lead to a model fitting the dominant category well, but ignoring the underrepresented category. Thus, the decisions facilitated by the model will not serve the underrepresented category very well.
+
+## (3pts)
+
+Imagine you are working on a model to predict the likelihood that an individual loses their job as the result of the Corona virus. You have a very large dataset with many hundreds of features, but you are worried that including indicators like age, income or gender might pose some ethical problems. When you discuss these concerns with your boss, she tells you to simply drop those features from the model. Does this solve the ethical issue? Why or why not?
+
+**Answer:** Probably not. There are often many other features in data that can proxy for (are correlated with) these demographic variables. Thus, the notion of "gender" for instance, will likely persist in the model even with the variable removed.

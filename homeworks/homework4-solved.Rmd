@@ -1,0 +1,136 @@
+---
+title: "Homework 4"
+author: ""
+date: "02/15/2021"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+**Directions:**
+
+Please turn in **both** a knitted HTML file *and* your Rmd file on WISE.
+
+Good luck!
+
+# 1. Setup (1pt)
+
+Change the author of this RMD file to be yourself and modify the below code so that you can successfully load the 'wine.rds' data file from your own computer.
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(tidytext)
+library(caret)
+library(naivebayes)
+wine = read_rds("../resources/pinot.rds")
+```
+
+# 2. Conditional Probability (3pts)
+
+Calculate $P(Burgundy | Fruit)$
+
+...i.e. the probability that a Pinot comes from Burgundy given it has the word 'fruit' in the description.
+
+```{r}
+fr <- nrow(filter(wine, str_detect(description,"fruit")))/nrow(wine)
+bu_and_fr <- nrow(filter(wine, province=="Burgundy" & str_detect(description,"fruit")))/nrow(wine)
+bu_and_fr/fr
+```
+
+# 3. Naive Bayes Algorithm (4pts)
+
+1. Train a naive bayes algorithm to classify a wine's province,
+2. using 80% of your data,
+3. three features engineered from the description
+4. and 5-fold cross validation.
+5. Report Kappa after using your model to predict provinces in the holdout sample.
+
+```{r}
+
+wino = wine %>% 
+  select(-taster_name) %>% 
+  mutate(cherry = str_detect(description,"cherry")) %>% 
+  mutate(chocolate = str_detect(description,"chocolate")) %>%
+  mutate(earth = str_detect(description,"earth")) %>%
+  select(-description)
+
+set.seed(504)
+wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+
+control <- trainControl(method = "cv", number = 5)
+
+fit <- train(province ~ .,
+             data = train, 
+             method = "naive_bayes",
+             metric = "Kappa",
+             trControl = control)
+
+confusionMatrix(predict(fit, test),factor(test$province))
+```
+
+
+# 4. Frequency differences (2pts)
+
+List the three words that most distinguish New York Pinots from all other Pinots.
+
+```{r}
+wtxt <- wine %>% 
+  unnest_tokens(word, description) %>% 
+  anti_join(stop_words) %>% 
+  filter(str_detect(string = word, pattern = "[a-z+]")) %>%  # get rid weird non alphas
+  filter(str_length(word)>3) %>%  # get rid of strings shorter than 3 characters
+  group_by(word) %>% 
+  mutate(total=n()) %>% 
+  ungroup()
+
+dtxt <- wtxt %>% 
+  mutate(province=ifelse(province=="New_York","New_York","Other")) %>% 
+  filter(!(word %in% c("wine","pinot","noir"))) %>% 
+  filter(total > 400) %>% 
+  group_by(province, word) %>%
+  count() %>% 
+  group_by(province) %>% 
+  mutate(proportion = n / sum(n)) %>% 
+  pivot_wider(id_cols = word, names_from = province, values_from = proportion) %>% 
+  mutate(diff=New_York-Other) 
+
+dtxt %>%
+  top_n(3, diff) %>%
+  mutate(word = reorder(word, diff)) %>%
+  ggplot(aes(word, diff)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip()
+```
+
+# 5. Bonus (1pt)
+
+Calculate the variance of the logged word-frequency distributions for each province.
+
+```{r}
+
+wtxt <- wine %>% 
+  unnest_tokens(word, description) %>% 
+  anti_join(stop_words) %>% 
+  filter(str_detect(string = word, pattern = "[a-z+]")) %>%  # get rid weird non alphas
+  filter(str_length(word)>3) %>%  # get rid of strings shorter than 3 characters
+  group_by(word) %>% 
+  mutate(total=n()) %>% 
+  ungroup() %>% 
+  group_by(province, word) %>%
+  count() %>% 
+  mutate(ln = log(n)) 
+
+wtxt %>% 
+  group_by(province) %>% 
+  summarise(v = var(ln)) %>% 
+  head()
+
+
+```
+

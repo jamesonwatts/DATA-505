@@ -1,50 +1,41 @@
 ---
 title: "Logistic Regression"
 author: "Jameson Watts, Ph.D."
-date: "02/01/2020"
+date: "02/15/2021"
 output: 
-  html_document:
-    toc: true
-    toc_depth: 2
-    toc_float: true
-    toc_smooth: true
-    number_sections: true
+  pdf_document:
     df_print: kable
     fig_width: 11
     fig_height: 8
 ---
-<style>
-strong{
-  color: #018080;
-}
-table.rmdtable th {
-    background: #791716;
-}
-
-</style>
 
 ## Agenda
 
 1. The math of logistic regression
 2. Implementation with Caret
-3. Regularization (penalized logit)
+3. Dinner Break
+4. ROC Curves
+5. Model Weighting
+6. Regularization (penalized logit)
 
-## First Model Due 3/7
+## First Model Due 3/8
 
 **Turn in:**
 
 1. An annotated RMD file 
-2. that generates a dataframe 
-3. with *only* the features you want in the model.
+2. and the .rds file that it generates,
+3. that contains *only* the features you want in the model.
+
+*Note:* I will supply an outline you can work from
 
 **Rules:**
 
 1. You must specify whether I should use KNN or Naive Bayes and the *exact* values of any tuning parameters.
 2. Models will be run with the following equation: "province ~ ." on your data frame
-3. I will use repeated 10-fold cross validation
+3. I will use repeated 5-fold cross validation
 4. and the same index for partitioning training and test sets for every group.
-5. Assignments must be turned in before class on the 7th
-6. Grade is based on highest Kappa, with grades of 100, 95 and 90 to the first, second and third place finishers.
+5. Assignments must be turned in before class on the 9th
+6. Grade is based on highest Kappa, with grades of 20, 19, 18, 17 and 16 to the first-through-fifth place finishers.
 7. RMD files will be published to the class after grading is complete
 
 
@@ -71,28 +62,29 @@ library(tidyverse)
 library(caret)
 source('theme.R')
 
-wine = as.data.frame(read_rds("../resources/pinot-project.rds")) %>% 
-  mutate(oregon = as.integer(province=="Oregon")) %>% 
+wine <-  read_rds("../resources/pinot.rds") %>% 
+  mutate(province = as.numeric(province=="Oregon")) %>% 
   rowid_to_column("id") %>% 
-  select(-province)
+  select(-taster_name)
 
-#create a function to extract words with totals > j
-wine_words <- function(data, j = 1000, stem=F){ 
+## create a function to extract words with totals > j
+
+wine_words <- function(df, j = 1000, stem=F){ 
   library(tidytext)
   library(SnowballC)
   data(stop_words)
 
-  data <- data %>%
+  words <- df %>%
     unnest_tokens(word, description) %>%
     anti_join(stop_words) %>% # get rid of stop words
     filter(!(word %in% c("wine","pinot","vineyard")))
   
   if(stem){
-    data <- data %>% 
+    words <- words %>% 
       mutate(word = wordStem(word))
   }
   
-  data <- data %>% 
+  words <- words %>% 
     count(id, word) %>% 
     group_by(id) %>% 
     mutate(exists = (n>0)) %>% 
@@ -101,33 +93,40 @@ wine_words <- function(data, j = 1000, stem=F){
     mutate(total = sum(n)) %>% 
     filter(total > j) %>% 
     pivot_wider(id_cols = id, names_from = word, values_from = exists, values_fill = list(exists=0)) %>% 
-    right_join(select(wine,id, oregon)) %>% 
+    right_join(select(df,id,province)) %>% 
     drop_na() %>% 
     select(-id)
 }
 
+# create new dataframe with defaults from function
 wino <- wine_words(wine)
+```
 
-head(wino, 10) %>% 
-  select(1:5,oregon)
+## Look at the data
 
+```{r}
+wino %>% 
+  head(10) %>% 
+  select(1:5,province)
 ```
 
 ## Split the data 
 
-```{r}
-wine_index <- createDataPartition(wino$oregon, p = 0.80, list = FALSE)
+```{r warning=F}
+set.seed(504)
+wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
 train <- wino[ wine_index, ]
 test <- wino[-wine_index, ]
-table(train$oregon)
+table(train$province)
 ```
 
 ## A basic model
 
-```{r}
-fit <- train(oregon ~ .,
+```{r warning=F}
+control <- trainControl(method = "cv", number = 5)
+fit <- train(province ~ .,
              data = train, 
-             trControl = trainControl(method = "cv", number = 5),
+             trControl = control,
              method = "glm",
              family = "binomial")
 
@@ -145,7 +144,7 @@ data.frame(name = names(odds), odds = odds) %>%
 prob <- predict(fit, newdata=test)
 pred <- ifelse(prob > 0.5, 1, 0)
 
-confusionMatrix(factor(pred),factor(test$oregon))
+confusionMatrix(factor(pred),factor(test$province))
 ```
 
 Not bad. But what if we increase the number of words used?
@@ -153,13 +152,14 @@ Not bad. But what if we increase the number of words used?
 ## Using more words
 
 ```{r}
+set.seed(504)
 wino <- wine_words(wine, j=500)
-wine_index <- createDataPartition(wino$oregon, p = 0.80, list = FALSE)
+wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
 train <- wino[ wine_index, ]
 test <- wino[-wine_index, ]
-fit <- train(oregon ~ .,
+fit <- train(province ~ .,
              data = train, 
-             trControl = trainControl(method = "cv", number = 5),
+             trControl = control,
              method = "glm",
              family = "binomial")
 
@@ -177,19 +177,20 @@ data.frame(name = names(odds), odds = odds) %>%
 prob <- predict(fit, newdata=test)
 pred <- ifelse(prob > 0.5, 1, 0)
 
-confusionMatrix(factor(pred),factor(test$oregon))
+confusionMatrix(factor(pred),factor(test$province))
 ```
 
 ## Using stems
 
 ```{r}
+set.seed(504)
 wino <- wine_words(wine, j=500, stem = T)
-wine_index <- createDataPartition(wino$oregon, p = 0.80, list = FALSE)
+wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
 train <- wino[ wine_index, ]
 test <- wino[-wine_index, ]
-fit <- train(oregon ~ .,
+fit <- train(province ~ .,
              data = train, 
-             trControl = trainControl(method = "cv", number = 5),
+             trControl = control,
              method = "glm",
              family = "binomial")
 
@@ -207,30 +208,43 @@ data.frame(name = names(odds), odds = odds) %>%
 prob <- predict(fit, newdata=test)
 pred <- ifelse(prob > 0.5, 1, 0)
 
-confusionMatrix(factor(pred),factor(test$oregon))
+confusionMatrix(factor(pred),factor(test$province))
 ```
 
 Even better!
 
-## ROC Curve evaluation
 
-Remember: 
+# Dinner (and high fives)
+
+![](images/confusion.png)
+
+
+# ROC Curve evaluation
+
+**Note:**
 
 $Sensitivity = \frac{truePos}{allPos} = TruePosRate$
 
 $Specificity = \frac{trueNeg}{allNeg} = TrueNegRate = 1 - FalsePosRate$
 
+
 ```{r}
 library(pROC)
-myRoc <- roc(test$oregon, prob)
+myRoc <- roc(test$province, prob)
 plot(myRoc)
 auc(myRoc)
 ```
 
 ```{r}
-labels <- test$oregon[order(prob, decreasing=TRUE)]
+labels <- test$province[order(prob, decreasing=TRUE)]
 roc_df <- data.frame(TruePosRate=cumsum(labels)/sum(labels), FalsePosRate=cumsum(!labels)/sum(!labels), labels)
 
+roc_df %>% 
+  slice(110:120) 
+```
+
+
+```{r}
 roc_df %>% 
   ggplot(aes(FalsePosRate,TruePosRate))+
   geom_point()
@@ -240,15 +254,75 @@ roc_df %>%
 ## Exercise
 
 1. Gather into your prediction teams.
-2. Choose a Pinot province other than Oregon
+2. Choose a Pinot province other than Oregon or California
 3. Use logistic regression to find the words/terms that increase the odds of choosing that province the most
+
+
+# Weigted Penalty
+
+```{r}
+wine = read_rds("../resources/pinot.rds") %>% 
+  mutate(province = as.numeric(province=="New_York")) %>% 
+  rowid_to_column("id") %>% 
+  select(-taster_name)
+
+wino <- wine_words(wine, j=500, stem = T)
+table(wino$province)
+```
+
+## Basic model
+
+```{r}
+fit <- train(province ~ .,
+             data = wino, 
+             trControl = control,
+             method = "glm",
+             family = "binomial")
+
+prob <- predict(fit, newdata=test)
+pred <- ifelse(prob > 0.5, 1, 0)
+
+confusionMatrix(factor(pred),factor(test$province))
+
+```
+
+
+## Create some weights
+
+```{r}
+weight_train <- train %>% 
+  mutate(weights=if_else(province==1,20,1))
+
+fit <- train(province ~ .,
+             data = train, 
+             trControl = trainControl(method = "cv", number = 5),
+             method = "glm",
+             family = "binomial",
+             weights = weight_train$weights)
+
+prob <- predict(fit, newdata=test)
+pred <- ifelse(prob > 0.5, 1, 0)
+
+confusionMatrix(factor(pred),factor(test$province))
+
+```
+## Top features
+
+```{r}
+#show the odds ratios for top coefficients
+odds <- exp(coef(fit$finalModel))
+data.frame(name = names(odds), odds = odds) %>%  
+  mutate(probability=odds/(1+odds)) %>% 
+  arrange(desc(odds)) %>% 
+  head(10)
+```
 
 
 # Regularization
 
 ![](images/Regularization.png)
 
-Often alsoAlso called 'penalized' because it adds a penalizing term to the loss function.
+Often also called 'penalized' because it adds a penalizing term to the loss function.
 
 $\min_{f}\sum_{i=1}^{n}V(f(x_{i}),y_{i})+\lambda R(f)$
 
@@ -258,13 +332,6 @@ The amount of the penalty is fine-tuned using a constant called lambda. When lam
 library(glmnet)
 ```
 
-## Ridge Regression
-
-$\sum_{i=1}^{n} \left( y_i - \beta_0 - \sum_{j=1}^{p} \beta_j x_{ij}    \right) ^ 2 + \lambda \sum_{j=1}^{p} \beta_j^2$
-
-Ridge regression shrinks the regression coefficients, so that variables, with minor contribution to the outcome, have their coefficients close to zero.
-
-The shrinkage of the coefficients is achieved by penalizing the regression model with a penalty term called **L2-norm**, which is the sum of the squared coefficients. 
 
 ## Lasso Regression
 
@@ -273,6 +340,15 @@ $\sum_{i=1}^{n} \left( y_i - \beta_0 - \sum_{j=1}^{p} \beta_j x_{ij}    \right) 
 Lasso stands for Least Absolute Shrinkage and Selection Operator. It shrinks the regression coefficients toward zero by penalizing the regression model with a penalty term called L1-norm, which is the sum of the absolute coefficients.
 
 In the case of lasso regression, the penalty has the effect of forcing some of the coefficient estimates, with a minor contribution to the model, to be exactly equal to zero. This means that, lasso can be also seen as an alternative to the subset selection methods for performing variable selection in order to reduce the complexity of the model.
+
+## Ridge Regression
+
+$\sum_{i=1}^{n} \left( y_i - \beta_0 - \sum_{j=1}^{p} \beta_j x_{ij}    \right) ^ 2 + \lambda \sum_{j=1}^{p} \beta_j^2$
+
+Ridge regression shrinks the regression coefficients, so that variables, with minor contribution to the outcome, have their coefficients close to zero.
+
+The shrinkage of the coefficients is achieved by penalizing the regression model with a penalty term called **L2-norm**, which is the sum of the squared coefficients. 
+
 
 ## Elastic Net
 
@@ -284,15 +360,23 @@ Ridge regression will perform better when the outcome is a function of many pred
 
 
 ```{r}
+wine = read_rds("../resources/pinot.rds") %>% 
+  mutate(province = as.numeric(province=="Burgundy")) %>% 
+  rowid_to_column("id") %>% 
+  select(-taster_name)
+
+wino <- wine_words(wine, j=500, stem = T)
+
+set.seed(504)
 wino <- wine_words(wine)
-wine_index <- createDataPartition(wino$oregon, p = 0.80, list = FALSE)
+wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
 train <- wino[ wine_index, ]
 test <- wino[-wine_index, ]
 fit <- train(
-  oregon ~., 
+  province ~., 
   data = train,
   method = "glmnet",
-  trControl = trainControl("cv"),
+  trControl = control,
   tuneLength = 10
 )
 
@@ -308,16 +392,29 @@ exp(coef(fit$finalModel, fit$bestTune$lambda))
 prob <- predict(fit, newdata=test)
 pred <- ifelse(prob > 0.5, 1, 0)
 
-confusionMatrix(factor(pred),factor(test$oregon))
+confusionMatrix(factor(pred),factor(test$province))
 ```
 
 ## ROC Curve
 
 ```{r}
-myRoc <- roc(test$oregon, prob)
+myRoc <- roc(test$province, prob)
 plot(myRoc)
 auc(myRoc)
 ```
+# Vocabulary
+
+- Logistic Regression
+- Odds
+- Sensitivity
+- Specificity
+- ROC
+- AUC
+
+# Extra reading
+
+https://towardsdatascience.com/understanding-confusion-matrix-a9ad42dcfd62
+https://towardsdatascience.com/understanding-auc-roc-curve-68b2303cc9c5
 
 # References
 

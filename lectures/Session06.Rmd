@@ -1,34 +1,22 @@
 ---
 title: "Decision Trees"
 author: "Jameson Watts, Ph.D."
-date: "03/07/2020"
+date: "03/01/2021"
 output: 
-  html_document:
-    toc: true
-    toc_depth: 2
-    toc_float: true
-    toc_smooth: true
-    number_sections: true
+  pdf_document:
     df_print: kable
     fig_width: 11
     fig_height: 8
 ---
-<style>
-strong{
-  color: #018080;
-}
-table.rmdtable th {
-    background: #791716;
-}
 
-</style>
-
-## Agenda
+# Agenda
 
 1. Decision-trees
-2. Weighted models for class imbalance
-3. Random forests
-4. Mid-term Review
+2. Weighted models (revisited)
+3. Dinner
+4. Random forests
+5. Bagged models
+6. Group work
 
 # Decision trees
 
@@ -39,29 +27,25 @@ library(tidyverse)
 library(caret)
 source('theme.R')
 
-wine = as.data.frame(read_rds("../resources/pinot-project.rds")) %>% 
-  rowid_to_column("id") %>% 
-  mutate(lprice=log(price)) %>% 
-  
-  select(-price)
+wine = read_rds("../resources/pinot.rds") %>% 
+  rowid_to_column("id") 
 
-#create a function to extract words with totals > j
-wine_words <- function(data, j = 1000, stem=F){ 
+wine_words <- function(df, j = 1000, stem=F){ 
   library(tidytext)
   library(SnowballC)
   data(stop_words)
 
-  data <- data %>%
+  words <- df %>%
     unnest_tokens(word, description) %>%
     anti_join(stop_words) %>% # get rid of stop words
     filter(!(word %in% c("wine","pinot","vineyard")))
   
   if(stem){
-    data <- data %>% 
+    words <- words %>% 
       mutate(word = wordStem(word))
   }
   
-  data %>% 
+  words <- words %>% 
     count(id, word) %>% 
     group_by(id) %>% 
     mutate(exists = (n>0)) %>% 
@@ -70,15 +54,14 @@ wine_words <- function(data, j = 1000, stem=F){
     mutate(total = sum(n)) %>% 
     filter(total > j) %>% 
     pivot_wider(id_cols = id, names_from = word, values_from = exists, values_fill = list(exists=0)) %>% 
-    right_join(select(wine,id, province, lprice, points)) %>% 
-    drop_na() %>% 
-    select(-id)
+    right_join(select(df,id,province)) %>% 
+    select(-id) %>% 
+    mutate(across(-province, ~replace_na(.x, F)))
 }
 
 wino <- wine_words(wine, j=2000, stem=F) %>% 
   filter(province %in% c("Oregon","California")) %>% 
   head() %>% 
-  select(-lprice, -points) %>% 
   arrange(province)
 
 wino
@@ -108,7 +91,7 @@ and $p$ is the proportion of the class under consideration.
 
 For instance, the entropy of my sample is:
 
-$Entropy(parent)=Entropy(2_o,4_c)=-(2/6)log(2/6)-(4/6)log(4/6)=0.36+0.27=0.63$
+$Entropy(parent)=Entropy(2_c,4_o)=-(2/6)log(2/6)-(4/6)log(4/6)=0.36+0.27=0.63$
 
 ## Exercise
 
@@ -126,10 +109,11 @@ Is this better than splitting on tannins first?
 ## Split the data 
 
 ```{r, message=F}
-wino <- wine_words(wine, j=2000, stem=F)
+wino <- wine_words(wine, j=2000)
 wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
 train <- wino[ wine_index, ]
 test <- wino[-wine_index, ]
+
 table(train$province)
 ```
 
@@ -172,11 +156,19 @@ fit <- train(province ~ .,
              data = train, 
              method = "rpart",
              trControl = ctrl,
-             tuneLength = 10,
+             tuneLength = 15,
              metric = "Kappa")
 
 fit
 rpart.plot(fit$finalModel, type = 2)
+
+```
+
+## Confusion Matrix
+
+```{r}
+pred <- predict(fit, newdata=test)
+confusionMatrix(factor(pred),factor(test$province))
 ```
 
 ## Potential Overfitting
@@ -188,16 +180,24 @@ Should I prune on...
 - Complexity?
 - Minimum Information Gain?
 
-# Weighted Models
+
+# Weighted Models (revisited)
 
 ```{r}
 weight_train <- train %>% 
-  mutate(weights=if_else(province %in% c("Oregon","Burgundy","California"),1,10))
+  mutate(weights=case_when(
+    province=="Burgundy" ~ 3,
+    province=="California" ~ 1,
+    province=="Casablanca_Valley" ~ 37,
+    province=="Marlborough" ~ 18.5,
+    province=="New_York" ~ 37,
+    province=="Oregon" ~ 1.4))
 
 
 fit <- train(province ~ .,
              data = train, 
              method = "rpart",
+             tuneLength = 10,
              weights = weight_train$weights,
              trControl = ctrl)
 
@@ -212,7 +212,16 @@ pred <- predict(fit, newdata=test)
 confusionMatrix(factor(pred),factor(test$province))
 ```
 
-# Random Forest
+# Dinner (and virtual high fives)
+
+![](images/tree.png)
+# Dealing with variance 
+
+![](images/biasvariance.png)
+![](images/biasvariance2.png)
+
+
+## Random Forest (subsets of features)
 
 ![](images/randomForest.jpg)
 
@@ -221,7 +230,6 @@ library(randomForest)
 fit <- train(province ~ .,
              data = train, 
              method = "rf",
-             weights = weight_train$weights,
              trControl = ctrl)
 
 fit
@@ -233,6 +241,50 @@ fit
 pred <- predict(fit, newdata=test)
 confusionMatrix(factor(pred),factor(test$province))
 ```
+
+## Bagging (subsets of data)
+
+- "Bootstrap aggregating"
+- Builds multiple models with bootstrap samples (combinations with repetitions) using a single algorithm. 
+- The models’ predictions are combined with voting (for classification) or averaging (for numeric prediction). 
+- Voting means the bagging model’s prediction is based on the majority of learners’ prediction for a class. 
+
+## Treebag
+
+```{r}
+
+fit <- train(province ~ .,
+             data = train, 
+             trControl = ctrl,
+             method = "treebag")
+
+fit
+pred <- predict(fit, newdata=test)
+confusionMatrix(as.factor(pred),factor(test$province))
+```
+
+## Model Comparison
+
+```{r}
+library(doParallel)
+cl <- makePSOCKcluster(3)
+registerDoParallel(cl)
+system.time({
+  rpart.fit <- train(province~., data = train, method="rpart",trControl=ctrl);
+  treebag.fit <- train(province~., data = train, method="treebag", trControl=ctrl);
+  rf.fit <- train(province~., data = train, method="rf", trControl=ctrl);
+})
+
+stopCluster(cl) # close multi-core cluster
+rm(cl)
+
+results <- resamples(list(DecisionTree=rpart.fit, BaggedTree=treebag.fit, RandomForest=rf.fit))
+
+# summary of model differences
+summary(results)
+```
+
+
 
 ## Summary
 
@@ -251,50 +303,7 @@ Cons
 - Need to be careful with parameter tuning. 
 - Can create biased learned trees if some classes dominate.
 
-# Mid-term Review
 
-1. Multiple Regression
-    - Model diagnostics
-    - Variable interactions
-    - RMSE
-2. Data Ethics
-    - Class imbalances
-    - Anonymity and debiasing 
-3. Feature Engineering
-    - Encoding categorical vairables
-    - Interactions
-    - Transformations
-    - Standardizing
-4. Resampling
-    - Bootstrapping 
-    - V-fold Cross validations
-5. Parameter Selection
-    - Recursive feature elimination
-6. KNN
-    - How does it work?
-    - Accuraccy vs. Kappa
-    - Leakage
-    - Tuning
-    - Classification vs. Regression
-    - Confusion Matrix
-7. Naive Bayes
-    - How does it work?
-    - What is a conditional probability?
-8. Tidytext
-    - Document-term matrix
-    - tokens, stems, bigrams
-9. Logistic Regression
-    - How does it work?
-    - Why is it called regression and not classification?
-    - ROC curves
-    - Regularization
-10. Decision Trees
-    - How do they work?
-    - What is information gain?
-    - What is the complexity parameter?
-    - What does weighting the classes accomlish?
-    - How do random forests work? 
-    - What are the strengths / weaknesses?
 
 # References
 

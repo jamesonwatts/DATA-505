@@ -1,0 +1,79 @@
+---
+title: "Homework 3"
+author: ""
+date: "02/08/2021"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+**Directions:**
+
+Please turn in **both** a knitted HTML file *and* your Rmd file on WISE.
+
+Good luck!
+
+# 1. Setup (1pt)
+
+Change the author of this RMD file to be yourself and modify the below code so that you can successfully load the 'wine.rds' data file from your own computer.
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(caret)
+wine = read_rds("../resources/pinot.rds")
+```
+
+## 2. KNN Concepts (5pts)
+
+Explain how the choice of K affects the quality of your prediction when using a K Nearest Neighbors algorithm.
+
+**Answer:** (write your answer here)
+
+## 3. Feature Engineering (3pts)
+
+1. Remove the taster_name column from the data
+2. Create a version of the year column that is a factor (instead of numeric)
+3. Create dummy variables that indicate the presence of "cherry", "chocolate" and "earth" in the description
+4. Create 3 new features that represent the interaction between time and the cherry, chocolate and earth inidicators
+5. Remove the description column from the data
+
+```{r}
+
+```
+## 4. Preprocessing (3pts)
+
+1. Preprocess the dataframe that you created in the previous question using BoxCox, centering and scaling of the numeric features
+2. Create dummy variables for the year factor column
+
+```{r}
+
+```
+
+
+## 5. Running KNN (5pts)
+
+1. Split your data into an 80/20 training and test set
+2. Use Caret to run a KNN model that uses your engineered features to predict province
+  - use 5-fold cross validated subsampling 
+  - allow Caret to try 15 different values for K
+3. Display the confusion matrix on the test data
+
+
+```{r}
+
+```
+
+## 6. Kappa (2pts)
+
+Is this a good value of Kappa? Why or why not?
+
+**Answer:** (write your answer here)
+
+## 7. Improvement (2pts)
+
+Looking at the confusion matrix, where do you see room for improvement in your predictions?
+
+**Answer:** (write your answer here)

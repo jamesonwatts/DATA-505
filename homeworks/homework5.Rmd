@@ -1,0 +1,54 @@
+---
+title: "Homework 5"
+author: ""
+date: "03/01/2021"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+**Directions:**
+
+Please turn in **both** a knitted HTML file *and* your Rmd file on WISE.
+
+Good luck!
+
+# 1. Setup (1pt)
+
+Change the author of this RMD file to be yourself and modify the below code so that you can successfully load the 'pinot.rds' data file from your own computer.
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(caret)
+library(naivebayes)
+wine = read_rds("../resources/pinot.rds")
+```
+
+# 2. Logistic Concepts (3pts)
+
+Why do we call it Logistic Regression even though we are using the tecnique for classification?
+
+**Answer:** (Write you answer here)
+
+# 3. Modeling (4pts)
+
+1. Train a logistic regression algorithm to classify a whether a wine comes from Marlborough,
+2. using 80% of your data,
+3. three features engineered from the description
+4. and 5-fold cross validation.
+5. Report Kappa after using your model to predict the province in the holdout sample.
+
+# 4. Weighting (3pts)
+
+Rerun the above model with a 15 to 1 weight on Marlborough
+
+# 5. ROC Curves (5pts)
+
+Display an ROC for the model you ran in the last question and use it to explain your model's quality.
+
+**Answer:** (Write you answer here)
+
+*Note:* You can find a tutorial on ROC curves here: https://towardsdatascience.com/understanding-auc-roc-curve-68b2303cc9c5

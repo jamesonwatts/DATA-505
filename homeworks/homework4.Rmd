@@ -1,0 +1,63 @@
+---
+title: "Homework 4"
+author: ""
+date: "02/15/2021"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+**Directions:**
+
+Please turn in **both** a knitted HTML file *and* your Rmd file on WISE.
+
+Good luck!
+
+# 1. Setup (1pt)
+
+Change the author of this RMD file to be yourself and modify the below code so that you can successfully load the 'wine.rds' data file from your own computer.
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(caret)
+library(naivebayes)
+wine = read_rds("../resources/pinot.rds")
+```
+
+# 2. Conditional Probability (3pts)
+
+Calculate $P(Burgundy | Fruit)$
+
+...i.e. the probability that a Pinot comes from Burgundy given it has the word 'fruit' in the description.
+
+```{r}
+
+```
+
+# 3. Naive Bayes Algorithm (4pts)
+
+1. Train a naive bayes algorithm to classify a wine's province,
+2. using 80% of your data,
+3. three features engineered from the description
+4. and 5-fold cross validation.
+5. Report Kappa after using your model to predict provinces in the holdout sample.
+
+```{r}
+
+```
+
+
+# 4. Frequency differences (2pts)
+
+List the three words that most distinguish New York Pinots from all other Pinots.
+
+```{r}
+
+```
+
+# 5. Bonus (1pt)
+
+Calculate the variance of the logged word-frequency distributions for each province.

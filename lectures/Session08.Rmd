@@ -1,9 +1,9 @@
 ---
-title: "Dimensionality Reduction"
+title: "Clustering"
 author: "Jameson Watts, Ph.D."
-date: "03/28/2020"
+date: "03/21/2020"
 output: 
-  html_document:
+  pdf_document:
     df_print: kable
     fig_width: 11
     fig_height: 8
@@ -11,22 +11,41 @@ output:
 
 ## Agenda
 
-1. Principle component analysis
-2. Topic modeling
-3. Group breakout sessions (if time)
+1. Review of Modeling Assignment #2
+2. K-means Clustering
+3. Hierarchical Clustering
+4. Final Modeling Project
 
-# Principle component analysis
 
-What are the primary reasons to use PCA?
+# Unsupervised Learning Review
 
-- Dimensionality reduction
-- Visualization
+1. What is difference between supervised and unsupervised learning?
+2. What is unsupervised learning used for?
+3. What are some challenges with unsupervised learning?
 
-## Algorithm
+# K-means Clustering Algorithm
 
-1. Find a linear combination of variables to create principle components
-2. Maintain as much variance as possible.
-3. Principle components are orthogonal (uncorrelated)
+## Start with k random clusters
+
+![](images/kmeans1.png)
+
+## Calculate means
+
+![](images/kmeans2.png)
+
+## Select cluster based on which mean point is closest to
+
+![](images/kmeans3.png)
+
+## Adjust menas and repeat
+
+![](images/kmeans4.png)
+
+## Potential Issues
+
+- What happens with high dimensionality?
+- What happens when dimensions aren't scaled?
+
 
 ## Setup
 ```{r setup, message=FALSE, warning=FALSE}
@@ -35,322 +54,215 @@ library(tidyverse)
 library(tidytext)
 data(stop_words)
 
-wine <- read_rds("../resources/variety-project.rds") %>% rowid_to_column("id") 
+wine <- read_rds("../resources/variety.rds") %>% rowid_to_column("id") 
+
+glimpse(wine)
 ```
 
-## Pull a bunch of words
+## Find top words in each variety
+```{r}
+top_words <- wine %>%
+  unnest_tokens(word, description) %>%
+  anti_join(stop_words) %>% 
+  filter(!(word %in% c("wine","flavors","pinot","gris"))) %>% 
+  count(id, word) %>% 
+  group_by(id) %>% 
+  mutate(exists = if_else(n>0,1,0)) %>% 
+  ungroup %>% 
+  right_join(wine, by="id") %>%
+  count(variety, word) %>% 
+  group_by(variety) %>% 
+  top_n(3,n) %>%
+  ungroup %>% 
+  select(word) %>% 
+  distinct()
+
+top_words
+```
+
+## Create features from top words
 
 ```{r}
-library(tidytext)
-data(stop_words)
-
-wine <- wine %>% 
+wino <- wine %>%
   unnest_tokens(word, description) %>%
-  anti_join(stop_words) %>%
-  filter(!(word %in% c("drink","vineyard","variety","price","points","wine","pinot","chardonnay","gris","noir","riesling","syrah"))) %>% 
+  anti_join(stop_words) %>% 
+  filter(word %in% top_words$word) %>% 
   count(id, word) %>% 
-  group_by(word) %>% 
-  mutate(total = sum(n)) %>% 
-  filter(total > 500) %>% 
-  ungroup %>% 
   group_by(id) %>% 
   mutate(exists = if_else(n>0,1,0)) %>% 
   ungroup %>% 
   pivot_wider(id_cols = id, names_from = word, values_from = exists, values_fill = c(exists=0)) %>% 
   right_join(wine, by="id") %>% 
   replace(.,is.na(.),0) %>% 
-  mutate(log_price = log(price)) %>% 
-  select(-id, -price, -description) 
-
-names(wine)
+  mutate(price=log(price)) %>%
+  mutate(price=scale(price), points=scale(points)) %>% 
+  select(-id,-variety, -description) 
 ```
 
-## Run the principle component analysis
+## Look at the data
 
 ```{r}
-pr_wine <- prcomp(x = select(wine,-variety), scale = T, center = T)
-summary(pr_wine)
+head(wino)
 ```
 
-## Show variance plot
+## Basic K-means cluster
 
 ```{r}
-screeplot(pr_wine, type = "lines")
+kclust <- kmeans(wino, centers = 3)
+kclust$centers
+glance(kclust)
 ```
 
-## Visualize biplots
+## Add clusters to original dataset (from Broom)
 
 ```{r}
-biplot(pr_wine)
-biplot(pr_wine, choices = c(3,4))
+wink <- augment(kclust,wino)
+head(wink)
 ```
 
-## Factor loadings
+## Visualize clusters
 
 ```{r}
-pr_wine$rotation
+wink %>% 
+  pivot_longer(c(oak, finish, fruit),names_to = "feature") %>% 
+  ggplot(aes(value, fill=.cluster))+
+  geom_density(alpha=0.3)+
+  facet_wrap(~feature)
+
+wink %>% 
+  pivot_longer(c(cherry, pear, apple),names_to = "feature") %>% 
+  ggplot(aes(value, fill=.cluster))+
+  geom_density(alpha=0.3)+
+  facet_wrap(~feature)
+
+
+wink %>% 
+  pivot_longer(c(points,price),names_to = "feature") %>% 
+  ggplot(aes(value, fill=.cluster))+
+  geom_density(alpha=0.3)+
+  facet_wrap(~feature)
 ```
 
-
-## Loadings times values for all rows
+## Try different numbers of clusters
 
 ```{r}
-head(pr_wine$x)
+kclusts <- tibble(k = 1:9) %>%
+  mutate(
+    kclust = map(k, ~kmeans(wino, .x)),
+    glanced = map(kclust, glance),
+    augmented = map(kclust, augment, wino)
+  )
+
 ```
 
-
-## Add variety label to principle components and name them
+## Plot the different clusters on two axes
 
 ```{r}
-prc <- bind_cols(select(wine,variety),as.data.frame(pr_wine$x)) %>% 
-  select(1:5) %>% 
-  rename("quality" = PC1) %>% 
-  rename("flavor" = PC2) %>% 
-  rename("oak" = PC3) %>% 
-  rename("tart" = PC4)
-head(prc)
+
+assignments <- kclusts %>% 
+  unnest(augmented)
+
+ggplot(assignments, aes(price, points)) +
+  geom_point(aes(color = .cluster), alpha=0.3) + 
+  facet_wrap(~ k)
+
 ```
 
-## Density of different components by variety (Factors 1&2)
+## Look at improvement in within-cluster error
 
 ```{r}
-prc %>% 
-  select(variety, quality, flavor) %>% 
-  pivot_longer(cols = -variety,names_to = "component",values_to = "loading") %>% 
-  ggplot(aes(loading, fill=variety))+
-  geom_density(alpha=0.5)+
-  facet_grid(.~component)
+clusterings <- kclusts %>%
+  unnest(glanced, .drop = TRUE)
 
+ggplot(clusterings, aes(k, tot.withinss)) +
+  geom_line()
 ```
 
-## Density of different components by variety (Factors 3&4)
+
+- What are some real world applications of clustering?
+- How might I choose number of clusters in practice?
+
+
+# Dinner break (and virtual high fives)
+
+![](images/simpsons.png)
+
+# Group Exercise
+
+1. Load the bank data
+2. Run k-means clustering on columns 1-12 (age - credit limit)
+3. Label the clusters appropriately
+4. Create a new feature (column) for customer revenue using:
+  - $20\%*Revolving Credit+0.25*Transaction Count-\$15*Contacts Count$
+5. Plot density plots of your clusters against this new column
+
+
+# Hierarchical Clustering
+
+![](images/hclust1.png)
+
+![](images/hclust2.png)
+
+![](images/hclust3.png)
+
+![](images/hclust4.png)
+
+## Create the hierarchical cluster
 
 ```{r}
-prc %>% 
-  select(variety, oak, tart) %>% 
-  pivot_longer(cols = -variety,names_to = "component",values_to = "loading") %>% 
-  ggplot(aes(loading, fill=variety))+
-  geom_density(alpha=0.5)+
-  facet_grid(.~component)
-
+swine <- wino %>% 
+  sample_n(200)
+  
+hclustr <- hclust(d=dist(swine))
+summary(hclustr)
 ```
 
-## What if we add back more words (features)?
+## Plot the dendrogram
 
 ```{r}
-wine <- read_rds("../resources/variety-project.rds") %>% rowid_to_column("id") 
-wine <- wine %>% 
-  unnest_tokens(word, description) %>%
-  anti_join(stop_words) %>%
-  filter(!(word %in% c("drink","vineyard","variety","price","points","wine","pinot","chardonnay","gris","noir","riesling","syrah"))) %>% 
-  count(id, word) %>% 
-  group_by(word) %>% 
-  mutate(total = sum(n)) %>% 
-  filter(total > 100) %>% 
-  ungroup %>% 
-  group_by(id) %>% 
-  mutate(exists = if_else(n>0,1,0)) %>% 
-  ungroup %>% 
-  pivot_wider(id_cols = id, names_from = word, values_from = exists, values_fill = c(exists=0)) %>% 
-  right_join(wine, by="id") %>% 
-  replace(.,is.na(.),0) %>% 
-  mutate(log_price = log(price)) %>% 
-  select(-id, -price, -description) 
-
-names(wine)
+plot(hclustr)
+abline(h=3, col="red")
 ```
 
-## Run the principle component analysis
+## Assign clusters
+```{r}
+hclustr <- hclust(d=dist(wino))
+cluster <- cutree(hclustr, k=3)
+swine <- wino %>% 
+  add_column(cluster) %>% 
+  mutate(cluster=as_factor(cluster))
+
+head(swine)
+```
+
+## Visualize clusters
 
 ```{r}
-pr_wine <- prcomp(x = select(wine,-variety), scale = T, center = T)
-screeplot(pr_wine, type = "lines")
+swine %>% 
+  pivot_longer(c(oak, finish, fruit),names_to = "feature") %>% 
+  ggplot(aes(value, fill=cluster))+
+  geom_density(alpha=0.3)+
+  facet_wrap(~feature)
+
+swine %>% 
+  pivot_longer(c(cherry, pear, apple),names_to = "feature") %>% 
+  ggplot(aes(value, fill=cluster))+
+  geom_density(alpha=0.3)+
+  facet_wrap(~feature)
+
+
+swine %>% 
+  pivot_longer(c(points,price),names_to = "feature") %>% 
+  ggplot(aes(value, fill=cluster))+
+  geom_density(alpha=0.3)+
+  facet_wrap(~feature)
 ```
 
-## Find the features with the highest loadings per factor
-
-```{r}
-rownames_to_column(as.data.frame(pr_wine$rotation)) %>% 
-  select(1:5) %>% 
-  filter(abs(PC1) >= 0.25 | abs(PC2) >= 0.25 | abs(PC3) >= 0.25 | abs(PC4) >= 0.25)
-
-```
+What do you see as some of the issues with Hierarchical clustering?
 
 
+# References
 
-## Name and graph the factors
-```{r}
-
-prc <- bind_cols(select(wine,variety),as.data.frame(pr_wine$x)) %>% 
-  select(1:5) %>% 
-  rename("pricey"=PC1, "quality_french_oak"=PC2, "crappy_french_oak"=PC3, "willamette_valley"=PC4)
-
-
-prc %>% 
-  select(variety, pricey,willamette_valley) %>% 
-  pivot_longer(cols = -variety,names_to = "component",values_to = "loading") %>% 
-  ggplot(aes(loading, fill=variety))+
-  geom_density(alpha=0.5)+
-  facet_grid(.~component)
-
-prc %>% 
-  select(variety, quality_french_oak, crappy_french_oak) %>% 
-  pivot_longer(cols = -variety,names_to = "component",values_to = "loading") %>% 
-  ggplot(aes(loading, fill=variety))+
-  geom_density(alpha=0.5)+
-  facet_grid(.~component)
-
-
-```
-
-## (Hard) Exercise
-
-1. Use the prc dataframe 
-2. to create a stacked bar graph with loading on y-axis
-3. and the factors on x-axis
-
-## Use these 4 factors for prediction
-
-```{r}
-library(caret)
-fit <- train(variety ~ .,
-             data = prc, 
-             method = "naive_bayes",
-             metric = "Kappa",
-             trControl = trainControl(method = "cv"))
-
-confusionMatrix(predict(fit, prc),factor(prc$variety))
-
-```
-
-...Dang!!!
-
-# Topic Modeling
-
-## Latent Dirichlet allocation
-
-Latent Dirichlet allocation is one of the most common algorithms for topic modeling. Without diving into the math behind the model, we can understand it as being guided by two principles.
-
-1. Every document is a mixture of topics. We imagine that each document may contain words from several topics in particular proportions. For example, in a two-topic model we could say “Document 1 is 90% topic A and 10% topic B, while Document 2 is 30% topic A and 70% topic B.”
-    
-2. Every topic is a mixture of words. For example, we could imagine a two-topic model of American news, with one topic for “politics” and one for “entertainment.” The most common words in the politics topic might be “President”, “Congress”, and “government”, while the entertainment topic may be made up of words such as “movies”, “television”, and “actor”. Importantly, words can be shared between topics; a word like “budget” might appear in both equally.
-
-See: https://www.tidytextmining.com/topicmodeling.html#latent-dirichlet-allocation
-
-LDA is a mathematical method for estimating both of these at the same time: finding the mixture of words that is associated with each topic, while also determining the mixture of topics that describes each document. 
-
-## Running a model
-
-```{r}
-library(topicmodels)
-
-wine_dtm <- read_rds("../resources/variety-project.rds") %>% rowid_to_column("id") %>% 
-  unnest_tokens(word, description) %>%
-  anti_join(stop_words) %>%
-  filter(!(word %in% c("drink","vineyard","variety","price","points","wine","pinot","chardonnay","gris","noir","riesling","syrah"))) %>% 
-  count(id,word) %>% 
-  cast_dtm(id, word, n)
-
-wine_lda <- LDA(wine_dtm, k = 4, control = list(seed = 5004))
-wine_lda
-```
-
-## Word-topic probabilities
-
-```{r}
-topics <- tidy(wine_lda, matrix = "beta")
-head(topics)
-
-top_terms <- topics %>%
-  group_by(topic) %>%
-  top_n(10, beta) %>%
-  ungroup() %>%
-  arrange(topic, -beta)
-
-top_terms %>%
-  mutate(term = reorder_within(term, beta, topic)) %>%
-  ggplot(aes(term, beta, fill = factor(topic))) +
-  geom_col(show.legend = FALSE) +
-  facet_wrap(~ topic, scales = "free") +
-  coord_flip() +
-  scale_x_reordered()
-```
-
-
-## Document-topic probabilities
-
-```{r}
-topics <- tidy(wine_lda, matrix = "gamma")
-head(topics)
-```
-
-## What if we pivot wider?
-
-```{r, message=F}
-wine <- read_rds("../resources/variety-project.rds") %>% rowid_to_column("id")
-
-topics <- topics %>% 
-  pivot_wider(id_cols = document,names_from = topic,values_from = gamma, names_prefix = "topic_") %>% 
-  mutate(id=as.integer(document)) %>%
-  left_join(select(wine, id, variety)) %>% 
-  select(-document, -id)
-
-head(topics)
-```
-
-
-## Can we use topics to model an outcome?
-
-```{r}
-fit <- train(variety ~ .,
-             data = topics, 
-             method = "naive_bayes",
-             metric = "Kappa",
-             trControl = trainControl(method = "cv"))
-
-confusionMatrix(predict(fit, topics),factor(topics$variety))
-
-```
-
-## What if we used more topics?
-
-```{r}
-wine_lda <- LDA(wine_dtm, k = 20, control = list(seed = 5004))
-
-topics <- tidy(wine_lda, matrix = "gamma") %>% 
-  pivot_wider(id_cols = document,names_from = topic,values_from = gamma, names_prefix = "topic_") %>% 
-  mutate(id=as.integer(document)) %>% 
-  left_join(select(wine, id, variety)) %>% 
-  select(-document, -id)
-
-fit <- train(variety ~ .,
-             data = topics, 
-             method = "naive_bayes",
-             metric = "Kappa",
-             trControl = trainControl(method = "cv"))
-
-confusionMatrix(predict(fit, topics),factor(topics$variety))
-```
-
-## What if we allow price and points back in?
-
-```{r}
-topics <- tidy(wine_lda, matrix = "gamma") %>% 
-  pivot_wider(id_cols = document,names_from = topic,values_from = gamma, names_prefix = "topic_") %>% 
-  mutate(id=as.integer(document)) %>% 
-  left_join(wine) %>% 
-  mutate(log_price = log(price)) %>% 
-  select(-document, -id, -description, -price)
-
-fit <- train(variety ~ .,
-             data = topics, 
-             method = "naive_bayes",
-             metric = "Kappa",
-             trControl = trainControl(method = "cv"))
-
-confusionMatrix(predict(fit, topics),factor(topics$variety))
-```
-
-# Breakout Sessions
+https://cran.r-project.org/web/packages/broom/vignettes/kmeans.html
 
 

@@ -1,168 +1,305 @@
 ---
-title: "Neural Networks"
+title: "Intro to TidyModels"
 author: "Jameson Watts, Ph.D."
-date: "04/04/2020"
+date: "03/25/2020"
 output: 
-  html_document:
+  pdf_document:
     df_print: kable
     fig_width: 11
     fig_height: 8
 ---
+<style>
+strong{
+  color: #018080;
+}
+table.rmdtable th {
+    background: #791716;
+}
 
-## Agenda
+</style>
 
-1. Review of last week and modeling assignment 2
-2. Overview of neural networks
-3. Basic regression and classification with tensor flow
-
-## Set up tensorflow
-
-In the console
-
-> install_tensorflow(version = "1.15")
-
-*Note:* You may want to make sure you have the latest reticulate version installed.
-
-## Setup
+# Setup
 ```{r setup, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidymodels)
 library(tidyverse)
-library(reticulate)
-library(tensorflow)
-library(tfestimators)
+bank <- read_rds("../exams/BankChurners.rds") %>% 
+  mutate(Churn = as_factor(Churn)) %>%
+  mutate(Churn = fct_relevel(Churn, "yes","no")) %>%
+  mutate(log_Total_Trans_Amt = log(Total_Trans_Amt)) %>% 
+  mutate(Graduate_Degree = if_else(Education_Level %in% c("Graduate","Post-Graduate"),1,0)) # create a dummy variable for graduate education
+
+glimpse(bank)
 ```
 
-## Check tensorflow setup
+# Our First Model
+
+## Build and fit a basic regression model
+
 ```{r}
-tf_config()
+## create a model object and assign a linear regression engine to it
+lm_mod <- 
+  linear_reg() %>% 
+  set_engine("lm")
+
+lm_fit <- 
+  lm_mod %>% 
+  fit(log_Total_Trans_Amt ~ Gender * Graduate_Degree, data = bank)
+lm_fit
+```
+## Tidy it up
+
+```{r}
+tidy(lm_fit)
 ```
 
-## Create a simple dataset
+## Plot the coefficients to visualize statistical difference from zero
+
 ```{r}
-wine <- read_rds("../resources/pinot-project.rds") %>% 
-  select(price, province, points) %>% 
-  rownames_to_column("id") %>% 
-  mutate(exists=T) %>% 
-  pivot_wider(names_from = province, values_from = exists, values_fill = c(exists=F)) %>% 
-  mutate(price=log(price)) %>% 
-  select(-id) %>% 
-  mutate_if(is_numeric,scale) %>% 
-  mutate_if(is_logical,as.integer)
+library(dotwhisker)
+tidy(lm_fit) %>% 
+  dwplot(dot_args = list(size = 2, color = "black"),
+         whisker_args = list(color = "black"),
+         vline = geom_vline(xintercept = 0, colour = "grey50", linetype = 2))
+```
+So we see that while Men generally spend less money, those with a graduate degree actually spend more than other men.
 
-## create training and test partitions
-train_rows <- sample(1:nrow(wine), size = 0.8 * nrow(wine))
-train <- wine[train_rows,] 
-test <-wine[-train_rows,]
+# Preprocessing with Recipes
 
-head(train)
+## First let's split the data
+```{r}
+bank <- bank %>% 
+  select(-log_Total_Trans_Amt) # get rid of the logged trans amount (will transform original later)
+
+set.seed(504)
+# this is the tidymodels version of data splitting
+data_split <- initial_split(bank, prop = 3/4)
+
+bank_train <- training(data_split)
+bank_test  <- testing(data_split)
 ```
 
+## Create a simple recipe for a logistic regression
 
-## Create necessary inputs for train function
 ```{r}
-ftr_colns <- feature_columns( 
-  tf$feature_column$numeric_column("points"),
-  tf$feature_column$categorical_column_with_identity("Oregon",2),
-  tf$feature_column$categorical_column_with_identity("California",2),
-  tf$feature_column$categorical_column_with_identity("Burgundy",2)
-)
+bank_rec <- 
+  recipe(Churn ~ ., data = bank_train) %>% 
+  update_role(Education_Level, new_role = "keeper") # keep column in the data, but remove it as a predictor
 
-wodel <- linear_regressor(feature_columns=ftr_colns)
+summary(bank_rec) %>% head()
+```
+## Let's add some real feature engineering to the recipe
 
-winput = function(data){ 
-  input_fn(data, features = c("points","Oregon","California","Burgundy"), response = "price")
-}
+```{r}
+bank_rec <- 
+  recipe(Churn ~ ., data = bank_train) %>% 
+  update_role(Education_Level, new_role = "keeper") %>% 
+  step_BoxCox(all_numeric()) %>% 
+  step_dummy(all_nominal(), -all_outcomes(), -Education_Level) %>%  # dummy variables for all factor/character columns except for the outcome (i.e. Churn)
+  step_zv(all_predictors()) # remove all zero variance predictors (i.e. low frequency dummies)
+  
+```
+
+## Create a logistic regression model
+
+```{r}
+lr_mod <- 
+  logistic_reg() %>% 
+  set_engine("glm")
+```
+
+Now we need to:
+  1. Preprocess the training data with our recipe
+  2. Run the model
+  3. Apply the recipe to the test set
+
+## Using a workflow...
+
+```{r}
+bank_wflow <- 
+  workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_recipe(bank_rec)
+bank_wflow
+```
+## Use the workflow to train our model
+
+```{r}
+bank_fit <- ## fit the model
+  bank_wflow %>% 
+  fit(data = bank_train)
+
+bank_fit %>% ## display results
+  pull_workflow_fit() %>% 
+  tidy() 
+```
+## Use our fitted model to predict on test data
+
+```{r}
+predict(bank_fit, bank_test) %>% head()
+
+bank_pred <- 
+  predict(bank_fit, bank_test, type = "prob") %>% 
+  bind_cols(bank_test %>% select(Churn))
+
+bank_pred %>% head()
 
 ```
 
-## Train the model
+## ...and evaluate with ROC
 
 ```{r}
-## Assigns model to wodel
-wrain <- train(wodel,winput(train))
-wrain
-## Evaluates out of sample using wodel
-weval <- evaluate(wodel,winput(test))
-weval
+bank_pred %>% 
+  roc_curve(truth = Churn, .pred_yes) %>% 
+  autoplot()
 
-# pr <- predict(wodel,winput(test))
-# rbind_all(pr$predictions)
-# pr$predictions[][1]
+bank_pred %>%
+  roc_auc(truth = Churn, .pred_yes)
 ```
 
-## Build a basic classification model
+## ...or a confusion matrix
 
 ```{r}
-wine <- read_rds("../resources/pinot-project.rds") %>% 
-  select(province, price, points) %>%
-  mutate(price=log(price)) %>% 
-  mutate_if(is_numeric,scale) 
+cm <- predict(bank_fit, bank_test) %>%
+  bind_cols(bank_test %>% select(Churn))  %>% 
+  conf_mat(truth = Churn, .pred_class)
 
-
-## create training and test partitions
-train_rows <- sample(1:nrow(wine), size = 0.8 * nrow(wine))
-train <- wine[train_rows,] 
-test <-wine[-train_rows,]
-
-head(train)
+cm
+cm %>% autoplot()
+cm %>% autoplot(type="heatmap")
+cm %>% summary()
 ```
 
-## Create necessary inputs for train function
+## Finally, let's update our recipe to deal with class imbalance
+
 ```{r}
-ftr_colns <- feature_columns( 
-  tf$feature_column$numeric_column("price"),
-  tf$feature_column$numeric_column("points")
-)
+bank_rec <- 
+  recipe(Churn ~ ., data = bank_train) %>% 
+  update_role(Education_Level, new_role = "keeper") %>% 
+  step_BoxCox(all_numeric()) %>% 
+  step_dummy(all_nominal(), -all_outcomes(), -Education_Level) %>%  # dummy variables for all factor/character columns except for the outcome (i.e. Churn)
+  step_zv(all_predictors()) %>%  # remove all zero variance predictors (i.e. low frequency dummies)
+  step_upsample(Churn) # making our p
+  
+bank_wflow <- 
+  workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_recipe(bank_rec)
 
-wodel <- linear_classifier(feature_columns=ftr_colns,
-                           label_vocabulary = c("Oregon","California","Burgundy","Marlborough","Casablanca_Valley","New_York"),
-                           n_classes = 6)
+bank_fit <- ## fit the model
+  bank_wflow %>% 
+  fit(data = bank_train)
 
-winput = function(data){ 
-  input_fn(data, features = c("price","points"), response = "province")
-}
+cm <- predict(bank_fit, bank_test) %>%
+  bind_cols(bank_test %>% select(Churn))  %>% 
+  conf_mat(truth = Churn, .pred_class)
+
+cm %>% autoplot()
+cm %>% summary()
+```
+
+Note that we are catching more of the true positives! Why might this be important?
+
+# Resampling and tuning
+
+## Create our subsamples and tuning grid
+
+```{r}
+set.seed(504)
+folds <- vfold_cv(bank_train, v = 2)
+
+tree_grid <- grid_regular(cost_complexity(),
+                          tree_depth(),
+                          levels = 5)
+
+# note that grid_regular tries to take some of the guesswork out of choosing tuning parameters.
+# read about it here: https://dials.tidymodels.org/reference/grid_regular.html
+
+tree_grid %>% head()
 
 ```
 
-## Train the model
+## Create the model specification, workflow, and run it
 
 ```{r}
-## Assigns model to wodel
-wrain <- train(wodel,winput(train))
-wrain
-## Evaluates out of sample using wodel
-weval <- evaluate(wodel,winput(test))
-weval
+tune_spec <- 
+  decision_tree(
+    cost_complexity = tune(),
+    tree_depth = tune()
+  ) %>% 
+  set_engine("rpart") %>% 
+  set_mode("classification")
 
-pr <- predict(wodel,winput(test))
-```
 
-## How about a deep neural net?
+tree_wf <- workflow() %>%
+  add_model(tune_spec) %>%
+  add_recipe(bank_rec) # same recipe as before
 
-```{r}
-wodel <-
-    dnn_classifier(
-      feature_columns = ftr_colns,
-      hidden_units = c(3, 3),
-      label_vocabulary = c("Oregon","California","Burgundy","Marlborough","Casablanca_Valley","New_York"),
-      n_classes = 6,
-      optimizer = "Adagrad",
-      model_dir = "../models"
+tree_res <- 
+  tree_wf %>% 
+  tune_grid(
+    resamples = folds,
+    grid = tree_grid
     )
 
-## Assigns model to wodel
-wrain <- train(wodel,winput(train))
-wrain
-## Evaluates out of sample using wodel
-weval <- evaluate(wodel,winput(test))
-weval
+tree_res %>% 
+  collect_metrics() %>% 
+  head(20)
+```
+## Visualize performance differences
 
-tensorboard(log_dir = "../models")
+```{r}
+tree_res %>%
+  collect_metrics() %>%
+  mutate(tree_depth = factor(tree_depth)) %>%
+  ggplot(aes(cost_complexity, mean, color = tree_depth)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
 ```
 
+## Show the best models based on AUC
 
-# References
+```{r}
+tree_res %>%
+  show_best("roc_auc")
+```
 
-https://tensorflow.rstudio.com/
+## Finalize, fit and pull our optimized model
+
+```{r}
+best_tree <- tree_res %>%
+  select_best("roc_auc")
+
+final_wf <- 
+  tree_wf %>% 
+  finalize_workflow(best_tree)
+
+bank_fit <- 
+  final_wf %>%
+  fit(data = bank_train)
+  
+library(vip)
+
+bank_fit %>%
+  pull_workflow_fit() %>% 
+  vip()
+```
+
+## Let's see how it does out of sample
+
+```{r}
+
+cm <- predict(bank_fit, bank_test) %>%
+  bind_cols(bank_test %>% select(Churn))  %>% 
+  conf_mat(truth = Churn, .pred_class)
+
+cm %>% autoplot()
+cm %>% summary()
+
+```
+We have higher accuracy, kappa, sensitiviy and specificity than with our logistic regression. And it's balanced across positive and negative predictions.
 
 

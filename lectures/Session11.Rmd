@@ -1,9 +1,9 @@
 ---
-title: "Bagging, Boosting and Custom Ensembles"
+title: "Deep Learning"
 author: "Jameson Watts, Ph.D."
-date: "04/18/2020"
+date: "04/19/2020"
 output: 
-  html_document:
+  pdf_document:
     df_print: kable
     fig_width: 11
     fig_height: 8
@@ -11,28 +11,15 @@ output:
 
 ## Agenda
 
-1. Q&A with Brad Jackson of ProKarma
-2. Review of deep learning concepts
-3. Bagging 
-4. Boosting
-5. General Ensemble Methods
-6. Breakout session (if time)
+1. Q&A with CravenSpeed
+2. Anatomy of a Technical Presentation
+3. Quick Review of Bagging and Boosting
+4. Deep Learning Concepts
+5. Dinner
+6. Neural net implementation
+7. Groupwork
 
-# Review of Deep Learning Concepts
-
-- Nodes
-- Weights
-- Activation Function (relu vs. softmax)
-- Back propogation
-- Epoch
-- Batch Size
-- Regularization (L2 vs. dropout)
-- Hyperparameters
-
-
-# Improving model performance with meta-learing (maybe)
-
-![](images/biasvariance.png)
+# Review of Bagging and Boosting
 
 The goal is to decrease the variance (bagging) or bias (boosting) in our models.
 
@@ -40,161 +27,197 @@ The goal is to decrease the variance (bagging) or bias (boosting) in our models.
 - Step 2: combine the distribution into one “aggregated” model.
 
 ![](images/biasvariance2.png)
+# Dinner and (virtual) high fives
+
+
+# Neural Net implementations
 
 ## Setup
 ```{r setup, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidymodels)
 library(tidyverse)
-library(caret)
-library(tidytext)
-library(fastDummies)
-data(stop_words)
-wine <- read_rds("../resources/pinot-project.rds") %>% rowid_to_column("id")
+bank <- read_rds("../resources/BankChurners.rds") %>% 
+  mutate(Churn = as_factor(Churn)) %>%
+  mutate(Churn = fct_relevel(Churn, "yes","no"))
+
+set.seed(504)
+data_split <- initial_split(bank, prop = 3/4)
+
+bank_train <- training(data_split)
+bank_test  <- testing(data_split)
 ```
 
-## Engineer a couple of basic features
+# Set a baseline with extreme gradient boosting
 
 ```{r}
-wedata <- wine %>%
-  unnest_tokens(word, description) %>%
-  anti_join(stop_words) %>%
-  filter(str_detect(string = word, pattern = "[a-z+]")) %>%  # get rid weird non alphas
-  filter(!(word %in% c("wine","pinot","drink","noir","vineyard","palate","notes","flavors","bottling","offers"))) %>% 
-  count(id, word) %>% 
-  group_by(word) %>% 
-  mutate(total = sum(n)) %>% 
-  filter(total > 500) %>% 
-  ungroup %>% 
-  group_by(id) %>% 
-  mutate(exists = if_else(n>0,1,0)) %>% 
-  ungroup %>% 
-  pivot_wider(id_cols = id, names_from = word, values_from = exists, values_fill = c(exists=0)) %>% 
-  right_join(wine, by="id") %>% 
-  replace(.,is.na(.),0) %>%
-  mutate(price=log(price)) %>% 
-  mutate(price=scale(price)) %>% 
-  mutate(points=scale(points)) %>% 
-  dummy_cols(select_columns = c("year"), remove_first_dummy = T, remove_selected_columns = T) %>% 
-  select(-id, -description) 
+bank_rec <- 
+  recipe(Churn ~ ., data = bank_train) %>% 
+  step_BoxCox(all_numeric()) %>% 
+  step_normalize(all_numeric()) %>%
+  step_dummy(all_nominal(), -all_outcomes()) %>%  # dummy variables for all factor/character columns except for the outcome (i.e. Churn)
+  step_zv(all_predictors()) %>%  # remove all zero variance predictors (i.e. low frequency dummies)
+  step_upsample(Churn) 
+  
+xgb_spec <- 
+   boost_tree() %>% 
+   set_engine("xgboost") %>% 
+   set_mode("classification")
 
+bank_wflow <- 
+  workflow() %>% 
+  add_model(xgb_spec) %>% 
+  add_recipe(bank_rec)
 
-train_rows <- sample(1:nrow(wedata), size = 0.5 * nrow(wedata))
-train <- wedata[train_rows,]
-test <-wedata[-train_rows,]
+bank_fit <- ## fit the model
+  bank_wflow %>% 
+  fit(data = bank_train)
 
-head(train)
+cm <- predict(bank_fit, bank_test) %>%
+  bind_cols(bank_test %>% select(Churn))  %>% 
+  conf_mat(truth = Churn, .pred_class)
+
+cm %>% autoplot()
+cm %>% summary()
 ```
 
-## Run a basic Tree Model as a baseline
+
+# Compare with Neural Net
 
 ```{r}
-library(rpart)
-control <- trainControl(method="repeatedcv", number=2, repeats = 1)
+  
+nnet_spec <- 
+   mlp(hidden_units = 11) %>% 
+   set_engine("nnet") %>% 
+   set_mode("classification")
 
-fit <- train(province ~ .,
-             data = train, 
-             trControl = control,
-             method = "rpart")
+bank_wflow <- 
+  workflow() %>% 
+  add_model(nnet_spec) %>% 
+  add_recipe(bank_rec)
 
-fit
-pred <- predict(fit, newdata=test)
-confusionMatrix(as.factor(pred),factor(test$province))
+bank_fit <- ## fit the model
+  bank_wflow %>% 
+  fit(data = bank_train)
+
+cm <- predict(bank_fit, bank_test) %>%
+  bind_cols(bank_test %>% select(Churn))  %>% 
+  conf_mat(truth = Churn, .pred_class)
+
+cm %>% autoplot()
+cm %>% summary()
 ```
 
-## Bagging
 
-- Bootstrap aggregating
-- Builds multiple models with bootstrap samples (combinations with repetitions) using a single algorithm. 
-- The models’ predictions are combined with voting (for classification) or averaging (for numeric prediction). 
-- Voting means the bagging model’s prediction is based on the majority of learners’ prediction for a class. 
+## Let's do some tuning
 
-## Treebag
+```{r}
+mlp_spec <- 
+  mlp(hidden_units = tune(), penalty = tune(), epochs = tune()) %>% 
+  set_engine("nnet", trace = 0) %>% 
+  set_mode("classification")
+
+
+mlp_param <- parameters(mlp_spec)
+mlp_param %>% pull_dials_object("hidden_units")
+mlp_param %>% pull_dials_object("penalty")
+mlp_param %>% pull_dials_object("epochs")
+```
+## defining your own grid
+
+```{r}
+crossing(
+  hidden_units = 1:3,
+  penalty = c(0.0, 0.1),
+  epochs = c(100, 200)
+)
+```
+
+## using grid_regular
+
+```{r}
+grid_regular(mlp_param, levels = 2)
+```
+
+## setting different levels
+
+```{r}
+grid_regular(mlp_param, levels = c(hidden_units = 3, penalty = 2, epochs = 2))
+```
+## let's change the defaults
+
+```{r}
+mlp_wflow <- 
+  workflow() %>% 
+  add_model(mlp_spec) %>% 
+  add_recipe(bank_rec)
+
+mlp_param <- 
+  mlp_wflow %>% 
+  parameters() %>% 
+  update(
+    epochs = epochs(c(100, 500)),
+    hidden_units = hidden_units(c(5, 50))
+  )
+```
+
+## run all models across the grid
+
+```{r}
+set.seed(504)
+folds <- vfold_cv(bank_train, v = 2)
+
+mlp_reg_tune <-
+  mlp_wflow %>%
+  tune_grid(
+    folds,
+    grid = mlp_param %>% grid_regular(levels = 3)
+  )
+
+autoplot(mlp_reg_tune)
+```
+
+```{r}
+show_best(mlp_reg_tune) %>% select(-.estimator)
+```
+
+
+## Finalize, fit and pull our optimized model
+
+```{r}
+best_net <- mlp_reg_tune %>%
+  select_best("roc_auc")
+
+final_wflow <- 
+  mlp_wflow %>% 
+  finalize_workflow(best_net)
+
+bank_fit <- 
+  final_wflow %>%
+  fit(data = bank_train)
+  
+library(vip)
+
+bank_fit %>%
+  pull_workflow_fit() %>% 
+  vip()
+```
+
+## Let's see how it does out of sample
 
 ```{r}
 
-fit <- train(province ~ .,
-             data = train, 
-             trControl = control,
-             method = "treebag")
+cm <- predict(bank_fit, bank_test) %>%
+  bind_cols(bank_test %>% select(Churn))  %>% 
+  conf_mat(truth = Churn, .pred_class)
 
-fit
-pred <- predict(fit, newdata=test)
-confusionMatrix(as.factor(pred),factor(test$province))
-```
+cm %>% autoplot()
+cm %>% summary()
 
-## Boosting
-
-> A horse-racing gambler, hoping to maximize his winnings, decides to create a computer program that will accurately predict the winner of a horse race based on the usual information (number of races recently won by each horse, betting odds for each horse, etc.). To create such a program, he asks a highly successful expert gambler to explain his betting strategy. Not surprisingly, the expert is unable to articulate a grand set of rules for selecting a horse. On the other hand, when presented with the data for a specific set of races, the expert has no trouble coming up with a “rule of thumb” for that set of races (such as, “Bet on the horse that has recently won the most races” or “Bet on the horse with the most favored odds”). Although such a rule of thumb, by itself, is obviously very rough and inaccurate, it is not unreasonable to expect it to provide predictions that are at least a little bit better than random guessing. Furthermore, by repeatedly asking the expert’s opinion on different collections of races, the gambler is able to extract many rules of thumb.
-
-> In order to use these rules of thumb to maximum advantage, there are two problems faced by the gambler:
-
-> First, how should he choose the collections of races presented to the expert so as to extract rules of thumb from the expert that will be the most useful?
-
-> Second, once he has collected many rules of thumb, how can they be combined into a single, highly accurate prediction rule?
-
-> Boosting refers to a general and provably effective method of producing a very accurate prediction rule by combining rough and moderately inaccurate rules of thumb in a manner similar to that suggested above
-
-https://cseweb.ucsd.edu/~yfreund/papers/IntroToBoosting.pdf
-
-![](images/boosted-trees-process.png)
-
-## Random Forest (several deep trees)
-
-```{r}
-library(randomForest)
-fit <- train(province ~ .,
-             data = train, 
-             trControl = control,
-             method = "rf")
-
-fit
-pred <- predict(fit, newdata=test)
-confusionMatrix(as.factor(pred),factor(test$province))
-```
-
-## Gradient Boosting (many, many shallow trees)
-```{r}
-library(gbm)
-fit <- train(province ~ .,
-             data = train, 
-             trControl = control,
-             method = "gbm")
-
-fit
-pred <- predict(fit, newdata=test)
-confusionMatrix(as.factor(pred),factor(test$province))
 ```
 
 
-## Custom Ensembles?
+# Other resources
 
-https://cran.r-project.org/web/packages/caretEnsemble/vignettes/caretEnsemble-intro.html
-
-## Model Comparison
-
-```{r}
-library(doParallel)
-cl <- makePSOCKcluster(4)
-registerDoParallel(cl)
-system.time({
-  rpart.fit <- train(province~., data = train, method="rpart",trControl=control);
-  treebag.fit <- train(province~., data = train, method="treebag", trControl=control);
-  rf.fit <- train(province~., data = train, method="rf", trControl=control);
-  gbm.fit <- train(province~., data = train, method="gbm", trControl=control)
-})
-
-stopCluster(cl) # close multi-core cluster
-rm(cl)
-
-results <- resamples(list(DecisionTree=rpart.fit, BaggedTree=treebag.fit, RandomForest=rf.fit, GradientBoost=gbm.fit))
-
-# summary of model differences
-summary(results)
-```
-
-
-# References
-
-https://bradleyboehmke.github.io/HOML/gbm.html
-https://towardsdatascience.com/understanding-the-bias-variance-tradeoff-165e6942b229
+https://srdas.github.io/DLBook/
 

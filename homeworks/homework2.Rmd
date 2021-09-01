@@ -1,0 +1,77 @@
+---
+title: "Homework 2"
+author: ""
+date: "02/01/2021"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+**Directions:**
+
+Please turn in **both** a knitted HTML file *and* your Rmd file on WISE.
+
+Good luck!
+
+# Setup (1pt)
+
+Change the author of this RMD file to be yourself and modify the below code so that you can successfully load the 'wine.rds' data file from your own computer.
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(caret)
+library(fastDummies)
+wine = read_rds("../resources/wine.rds")
+```
+
+# Feature Engineering (3pts)
+
+1. Modify the below code and create a total of 10 features (including points). 
+2. Make sure that you remove all rows with a missing value. 
+3. Make sure that log(price) and your features are the only columns that remain in the wino dataframe.
+
+*Note: each item in a factor variable counts as one feature. I.e., each variety of wine counts as one feature, even though they are all in the same column within the dataframe.*
+
+```{r}
+library(caret)
+wino <- wine %>% 
+  mutate(lprice=log(price))
+  # engineer features here
+
+```
+
+# Caret (5pts)
+
+1. Use the Caret library to partition the wino dataframe into an 80/20 split. 
+2. Then run a linear regression with bootstrap resampling. 
+3. Report RMSE when your model is run on the test partition of the data.
+
+*Hint: control <- trainControl(method="boot", number=5)*
+
+```{r}
+
+
+```
+
+# Variable selection (1pt)
+
+Graph the importance of your 10 features.
+
+```{r}
+
+```
+
+# Bonus (3pts)
+
+1. Execute 'set.seed(504)' prior to running your (training/test) data partition
+2. Generate an RMSE on the test data of < 0.47 (1pt), < 0.46 (2pts), or < 0.45 (3pts)
+
+
+
+
+
+
+

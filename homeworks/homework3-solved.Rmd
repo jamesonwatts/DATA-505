@@ -1,0 +1,109 @@
+---
+title: "Homework 3"
+author: ""
+date: "02/08/2021"
+output: 
+  html_document:
+    df_print: kable
+    fig_width: 11
+    fig_height: 8
+---
+
+**Directions:**
+
+Please turn in **both** a knitted HTML file *and* your Rmd file on WISE.
+
+Good luck!
+
+# 1. Setup (1pt)
+
+Change the author of this RMD file to be yourself and modify the below code so that you can successfully load the 'wine.rds' data file from your own computer.
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(caret)
+library(fastDummies)
+wine = read_rds("../resources/pinot.rds")
+```
+
+## 2. KNN Concepts (5pts)
+
+Explain how the choice of K affects the quality of your prediction when using a K Nearest Neighbors algorithm.
+
+**Answer:** When K is too small, you tend to model the noise (random neighbors that aren't alike). When K is too large, you tend to lose information available from those in the neighborhood and become to general (too reliant on the population average).
+
+## 3. Feature Engineering (3pts)
+
+1. Remove the taster_name column from the data
+2. Create a version of the year column that is a factor (instead of numeric)
+3. Create dummy variables that indicate the presence of "cherry", "chocolate" and "earth" in the description
+4. Create 3 new features that represent the interaction between time and the cherry, chocolate and earth inidicators
+5. Remove the description column from the data
+
+```{r}
+wino <- wine %>%
+  select(-taster_name) %>% 
+  mutate(year_f = as.factor(year)) %>% 
+  mutate(cherry = str_detect(description,"cherry")) %>% 
+  mutate(chocolate = str_detect(description,"chocolate")) %>%
+  mutate(earth = str_detect(description,"earth")) %>% 
+  mutate(ycherry = cherry*year) %>% 
+  mutate(ychocolate = chocolate*year) %>% 
+  mutate(yearth = earth*year) %>% 
+  select(-description)
+
+wino %>% head()
+```
+## 4. Preprocessing (3pts)
+
+1. Preprocess the dataframe that you created in the previous question using BoxCox, centering and scaling of the numeric features
+2. Create dummy variables for the year factor column
+
+```{r}
+wino <- wino %>%   
+  preProcess(method = c("BoxCox","center","scale")) %>% 
+  predict(wino) %>% 
+  dummy_cols(
+    select_columns = c("year_f"),
+    remove_most_frequent_dummy = T, 
+    remove_selected_columns = T)
+```
+
+
+## 5. Running KNN (5pts)
+
+1. Split your data into an 80/20 training and test set
+2. Use Caret to run a KNN model that uses your engineered features to predict province
+  - use 5-fold cross validated subsampling 
+  - allow Caret to try 15 different values for K
+3. Display the confusion matrix on the test data
+
+
+```{r}
+set.seed(504)
+wine_index <- createDataPartition(wino$province, p = 0.8, list = FALSE)
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+
+control <- trainControl(method = "cv", number = 5)
+fit <- train(province ~ .,
+             data = train, 
+             method = "knn",
+             tuneLength = 15,
+             trControl = control)
+fit
+confusionMatrix(predict(fit, test),factor(test$province))
+```
+
+## 6. Kappa (2pts)
+
+Is this a good value of Kappa? Why or why not?
+
+**Answer:** By rule of thumb, it's pretty good. We're explaining approximately 37% of the explainable variation in the data (i.e. better than chance)
+
+## 7. Improvement (2pts)
+
+Looking at the confusion matrix, where do you see room for improvement in your predictions?
+
+**Answer:** Honestly, it looks like we're really struggling with the three smaller provinces. We're also mixing up California and Oregon a lot. Burgundy appears pretty good.
